@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flooding / Serial BP Visualizer</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="workspace" aria-label="BP visualizer">
+        <header class="topbar">
+          <div>
+            <h1>Flooding / Serial BP Visualizer</h1>
+            <p id="modeDescription">Zエラー / Xシンドロームの belief propagation</p>
+          </div>
+          <div class="stats" aria-live="polite">
+            <span id="phaseLabel">初期状態</span>
+            <span id="iterationLabel">iteration 0</span>
+            <span id="unsatLabel">unsatisfied 0</span>
+          </div>
+        </header>
+
+        <div class="canvasShell">
+          <canvas id="bpCanvas" width="1100" height="820"></canvas>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="controls">
+        <fieldset class="boundaryGroup scheduleGroup">
+          <legend>BP更新方式</legend>
+          <label>
+            <input type="radio" name="scheduleMode" value="flooding" checked />
+            <span>フロッディング</span>
+          </label>
+          <label>
+            <input type="radio" name="scheduleMode" value="serial" />
+            <span>シリアル</span>
+          </label>
+        </fieldset>
+
+        <div id="serialOrderGroup" class="serialOrderGroup" hidden>
+          <fieldset class="boundaryGroup">
+            <legend>シリアル更新順序</legend>
+            <label>
+              <input type="radio" name="serialOrderMode" value="forward" checked />
+              <span>昇順</span>
+            </label>
+            <label>
+              <input type="radio" name="serialOrderMode" value="reverse" />
+              <span>降順</span>
+            </label>
+            <label>
+              <input type="radio" name="serialOrderMode" value="random" />
+              <span>ランダム</span>
+            </label>
+          </fieldset>
+          <div class="orderDisplay">
+            <span>実際の更新順序</span>
+            <output id="serialOrderValue">v0 → v1 → ...</output>
+          </div>
+        </div>
+
+        <fieldset class="boundaryGroup">
+          <legend>符号モード</legend>
+          <label>
+            <input type="radio" name="codeMode" value="surface" checked />
+            <span>表面符号</span>
+          </label>
+          <label>
+            <input type="radio" name="codeMode" value="ldpc" />
+            <span>古典LDPC</span>
+          </label>
+          <label>
+            <input type="radio" name="codeMode" value="bb144" />
+            <span>BB 144</span>
+          </label>
+        </fieldset>
+
+        <div class="controlGroup">
+          <label id="sizeLabel" for="distance">格子サイズ</label>
+          <input id="distance" type="range" min="3" max="8" value="5" />
+          <output id="distanceValue">5 x 5</output>
+        </div>
+
+        <div class="controlGroup">
+          <label for="errorRate">エラー率 p</label>
+          <input id="errorRate" type="range" min="1" max="28" value="12" />
+          <output id="errorRateValue">0.12</output>
+        </div>
+
+        <div class="controlGroup">
+          <label for="damping">damping</label>
+          <input id="damping" type="range" min="0" max="90" value="25" />
+          <output id="dampingValue">0.25</output>
+        </div>
+
+        <fieldset id="boundaryGroup" class="boundaryGroup">
+          <legend>逃げられる境界</legend>
+          <label>
+            <input type="radio" name="boundaryMode" value="vertical" checked />
+            <span>左右</span>
+          </label>
+          <label>
+            <input type="radio" name="boundaryMode" value="horizontal" />
+            <span>上下</span>
+          </label>
+        </fieldset>
+
+        <div class="buttonGrid">
+          <button id="stepButton" class="primary" type="button">BP step</button>
+          <button id="runButton" type="button">Run</button>
+          <button id="resetButton" type="button">Reset BP</button>
+          <button id="newButton" type="button">New error</button>
+        </div>
+
+        <label class="toggle">
+          <input id="truthToggle" type="checkbox" />
+          <span>隠れたエラーを表示</span>
+        </label>
+
+        <div class="legend">
+          <div><span class="swatch red"></span>エラーらしい</div>
+          <div><span class="swatch neutral"></span>不確か</div>
+          <div><span class="swatch blue"></span>エラーなしらしい</div>
+          <div><span class="dot dark"></span>syndrome = 1</div>
+          <div><span class="dot pale"></span>syndrome = 0</div>
+        </div>
+
+        <div class="meter">
+          <div>
+            <span>推定エラー数</span>
+            <strong id="estimateCount">0</strong>
+          </div>
+          <div>
+            <span>真のエラー数</span>
+            <strong id="truthCount">0</strong>
+          </div>
+          <div>
+            <span>syndrome一致</span>
+            <strong id="matchLabel">0%</strong>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
