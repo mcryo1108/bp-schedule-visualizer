@@ -577,7 +577,7 @@ function computeLayout() {
   const bbStep = code.type === "bb144" ? Math.min((width - margin * 2) / code.lx, (graphHeight - margin * 2) / code.ly) : 0;
   const step =
       code.type === "surface"
-      ? usable / (code.size - 1) * (currentSchedule() === "serial" ? 0.6 : 1)
+      ? usable / (code.size - 1) * 0.6
       : code.type === "bb144"
         ? bbStep
         : usable / Math.max(1, code.variables.length - 1);
