@@ -23,7 +23,7 @@ const ui = {
   runButton: document.getElementById("runButton"),
   resetButton: document.getElementById("resetButton"),
   newButton: document.getElementById("newButton"),
-  saveImageButton: document.getElementById("saveImageButton"),
+  copyImageButton: document.getElementById("copyImageButton"),
   truthToggle: document.getElementById("truthToggle"),
   phaseLabel: document.getElementById("phaseLabel"),
   iterationLabel: document.getElementById("iterationLabel"),
@@ -1176,22 +1176,25 @@ function render() {
   drawLlrChart();
 }
 
-function saveCanvasImage() {
+async function copyCanvasImage() {
   render();
-  const mode = currentMode();
-  const schedule = currentSchedule();
-  const filename = `bp-${mode}-${schedule}-step-${bp.stepCount}.png`;
-  canvas.toBlob((blob) => {
-    if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }, "image/png");
+  const defaultLabel = "図とLLRをコピー";
+  try {
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob((result) => {
+        if (result) resolve(result);
+        else reject(new Error("PNGの生成に失敗しました"));
+      }, "image/png");
+    });
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    ui.copyImageButton.textContent = "コピーしました";
+  } catch (error) {
+    console.error(error);
+    ui.copyImageButton.textContent = "コピーできませんでした";
+  }
+  window.setTimeout(() => {
+    ui.copyImageButton.textContent = defaultLabel;
+  }, 1600);
 }
 
 function variableAt(clientX, clientY) {
@@ -1272,7 +1275,7 @@ ui.newButton.addEventListener("click", () => {
   setRunning(false);
   rebuild(true);
 });
-ui.saveImageButton.addEventListener("click", saveCanvasImage);
+ui.copyImageButton.addEventListener("click", copyCanvasImage);
 ui.truthToggle.addEventListener("change", render);
 for (const scheduleMode of ui.scheduleModes) {
   scheduleMode.addEventListener("change", () => {

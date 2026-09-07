@@ -98,8 +98,21 @@ p {
 }
 
 .canvasShell {
+  position: relative;
   min-height: 0;
   padding: 12px;
+}
+
+.copyImageButton {
+  position: absolute;
+  z-index: 2;
+  top: 24px;
+  right: 24px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-color: #8392a6;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 2px 8px rgba(23, 33, 43, 0.12);
 }
 
 canvas {
@@ -240,10 +253,6 @@ input[type="range"] {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-}
-
-.saveImageButton {
-  grid-column: 1 / -1;
 }
 
 button {
