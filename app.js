@@ -23,6 +23,7 @@ const ui = {
   runButton: document.getElementById("runButton"),
   resetButton: document.getElementById("resetButton"),
   newButton: document.getElementById("newButton"),
+  saveImageButton: document.getElementById("saveImageButton"),
   truthToggle: document.getElementById("truthToggle"),
   phaseLabel: document.getElementById("phaseLabel"),
   iterationLabel: document.getElementById("iterationLabel"),
@@ -1171,6 +1172,24 @@ function render() {
   drawLlrChart();
 }
 
+function saveCanvasImage() {
+  render();
+  const mode = currentMode();
+  const schedule = currentSchedule();
+  const filename = `bp-${mode}-${schedule}-step-${bp.stepCount}.png`;
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }, "image/png");
+}
+
 function variableAt(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
   const x = clientX - rect.left;
@@ -1244,6 +1263,7 @@ ui.newButton.addEventListener("click", () => {
   setRunning(false);
   rebuild(true);
 });
+ui.saveImageButton.addEventListener("click", saveCanvasImage);
 ui.truthToggle.addEventListener("change", render);
 for (const scheduleMode of ui.scheduleModes) {
   scheduleMode.addEventListener("change", () => {
