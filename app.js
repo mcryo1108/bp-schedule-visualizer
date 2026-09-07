@@ -7,6 +7,7 @@ const ui = {
   serialSpeedModes: [...document.querySelectorAll('input[name="serialSpeed"]')],
   serialOrderGroup: document.getElementById("serialOrderGroup"),
   serialOrderValue: document.getElementById("serialOrderValue"),
+  reshuffleOrderButton: document.getElementById("reshuffleOrderButton"),
   codeModes: [...document.querySelectorAll('input[name="codeMode"]')],
   modeDescription: document.getElementById("modeDescription"),
   sizeLabel: document.getElementById("sizeLabel"),
@@ -88,6 +89,14 @@ function shuffled(items) {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
+}
+
+function reshuffledOrder(current) {
+  const next = shuffled(current);
+  if (next.length > 1 && next.every((id, index) => id === current[index])) {
+    next.push(next.shift());
+  }
+  return next;
 }
 
 function createSurfaceCode(size, p) {
@@ -502,6 +511,7 @@ function updateLabels() {
   ui.colorLegend.hidden = code.type !== "color";
   ui.colorLegend.style.display = code.type === "color" ? "flex" : "none";
   ui.serialOrderValue.value = bp.serialOrder.map((id) => `v${id}`).join(" → ");
+  ui.reshuffleOrderButton.hidden = schedule !== "serial" || currentSerialOrderMode() !== "random";
   if (code.type === "surface") {
     ui.sizeLabel.textContent = "格子サイズ";
     ui.distanceValue.value = `${ui.distance.value} x ${ui.distance.value}`;
@@ -1241,6 +1251,12 @@ for (const serialOrderMode of ui.serialOrderModes) {
     rebuild(false);
   });
 }
+ui.reshuffleOrderButton.addEventListener("click", () => {
+  bp.serialOrder = reshuffledOrder(bp.serialOrder);
+  bp.serialIndex = 0;
+  bp.activeVariableId = null;
+  render();
+});
 for (const serialSpeedMode of ui.serialSpeedModes) {
   serialSpeedMode.addEventListener("change", () => {
     if (running) setRunning(true);

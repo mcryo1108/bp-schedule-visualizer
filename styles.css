@@ -217,6 +217,14 @@ canvas {
   overflow-wrap: anywhere;
 }
 
+.orderDisplay button {
+  min-height: 36px;
+}
+
+.orderDisplay button[hidden] {
+  display: none;
+}
+
 output {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
