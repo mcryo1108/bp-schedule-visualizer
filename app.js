@@ -572,12 +572,12 @@ function computeLayout() {
       ? Math.min(
           (width - margin * 2) / Math.max(1, colorMaxX - colorMinX),
           (graphHeight - margin * 2) / Math.max(1, colorMaxY - colorMinY),
-        )
+        ) * 0.7
       : 0;
   const bbStep = code.type === "bb144" ? Math.min((width - margin * 2) / code.lx, (graphHeight - margin * 2) / code.ly) : 0;
   const step =
-    code.type === "surface"
-      ? usable / (code.size - 1)
+      code.type === "surface"
+      ? usable / (code.size - 1) * (currentSchedule() === "serial" ? 0.6 : 1)
       : code.type === "bb144"
         ? bbStep
         : usable / Math.max(1, code.variables.length - 1);
@@ -797,8 +797,8 @@ function drawColorFaces() {
 
 function drawTannerLinks() {
   ctx.lineCap = "round";
-  ctx.strokeStyle = code.type === "surface" ? "rgba(23, 33, 43, 0.12)" : "rgba(99, 112, 131, 0.22)";
-  ctx.lineWidth = code.type === "surface" ? 12 : code.type === "bb144" ? 1.15 : 1.5;
+  ctx.strokeStyle = code.type === "surface" ? "rgba(23, 33, 43, 0.12)" : code.type === "color" ? "#4a9bc8" : "rgba(99, 112, 131, 0.22)";
+  ctx.lineWidth = code.type === "surface" ? 12 : code.type === "color" ? 5.5 : code.type === "bb144" ? 1.15 : 1.5;
   for (const variable of code.variables) {
     const p = pointForVariable(variable);
     if (code.type === "bb144") {
@@ -824,6 +824,13 @@ function drawTannerLinks() {
       ctx.moveTo(p.x1, p.y1);
       ctx.lineTo(p.x2, p.y2);
       ctx.stroke();
+      if (code.type === "color") {
+        ctx.strokeStyle = "rgba(23, 33, 43, 0.22)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.strokeStyle = "#4a9bc8";
+        ctx.lineWidth = 5.5;
+      }
     }
   }
 }
@@ -855,6 +862,38 @@ function drawVariables() {
         ctx.beginPath();
         ctx.arc(p.mx, p.my, 10.5, 0, Math.PI * 2);
         ctx.stroke();
+      }
+      continue;
+    }
+
+    if (code.type === "color") {
+      ctx.fillStyle = "#ffffff";
+      ctx.strokeStyle = isActiveSerial ? "#e0a82e" : isHovered ? "#17212b" : "#536579";
+      ctx.lineWidth = isActiveSerial ? 4 : 2;
+      ctx.beginPath();
+      ctx.arc(p.mx, p.my, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#536579";
+      ctx.font = "700 10px Inter, system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`V${variable.id}`, p.mx, p.my + 17);
+      if (ui.truthToggle.checked && variable.error) {
+        ctx.strokeStyle = "#e0a82e";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(p.mx, p.my, 11, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      if (bp.posterior[variable.id] < 0) {
+        ctx.fillStyle = "#17212b";
+        ctx.font = "800 10px Inter, system-ui, sans-serif";
+        ctx.fillText("1", p.mx, p.my);
+      } else if (Math.abs(bp.posterior[variable.id]) < 0.8) {
+        ctx.fillStyle = "#637083";
+        ctx.font = "800 10px Inter, system-ui, sans-serif";
+        ctx.fillText("?", p.mx, p.my);
       }
       continue;
     }
@@ -955,7 +994,7 @@ function drawChecks() {
     const { x, y } = pointForCheck(check);
     ctx.beginPath();
     if (code.type === "color") {
-      ctx.arc(x, y, 12, 0, Math.PI * 2);
+      ctx.arc(x, y, 14, 0, Math.PI * 2);
     } else if (code.type === "bb144") {
       ctx.arc(x, y, 7.5, 0, Math.PI * 2);
     } else if (code.type !== "surface") {
@@ -963,15 +1002,10 @@ function drawChecks() {
     } else {
       ctx.arc(x, y, 13, 0, Math.PI * 2);
     }
-    ctx.fillStyle =
-      code.type === "color" && check.syndrome
-        ? COLOR_CHECKS[check.colorIndex]
-        : check.syndrome
-          ? "#24303d"
-          : "#ffffff";
+    ctx.fillStyle = check.syndrome ? "#000000" : "#ffffff";
     ctx.fill();
     ctx.strokeStyle = code.type === "color" ? COLOR_CHECKS[check.colorIndex] : check.syndrome ? "#24303d" : "#95a3b5";
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = code.type === "color" ? 3 : 2.5;
     ctx.stroke();
 
     ctx.fillStyle = check.syndrome ? "#ffffff" : "#637083";
@@ -1154,7 +1188,7 @@ function setRunning(value) {
   if (timer) window.clearInterval(timer);
   timer = 0;
   if (running) {
-    const delay = currentSchedule() === "serial" ? 90 : 520;
+    const delay = currentSchedule() === "serial" ? 45 : 520;
     timer = window.setInterval(() => {
       bpStep();
       const estimate = estimateErrors();
