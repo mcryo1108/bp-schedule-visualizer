@@ -68,6 +68,10 @@
             <span>表面符号</span>
           </label>
           <label>
+            <input type="radio" name="codeMode" value="color" />
+            <span>カラー符号</span>
+          </label>
+          <label>
             <input type="radio" name="codeMode" value="ldpc" />
             <span>古典LDPC</span>
           </label>
@@ -125,6 +129,12 @@
           <div><span class="swatch blue"></span>エラーなしらしい</div>
           <div><span class="dot dark"></span>syndrome = 1</div>
           <div><span class="dot pale"></span>syndrome = 0</div>
+          <div id="colorLegend" class="colorLegend" hidden>
+            <span class="dot colorCheck redCheck"></span>
+            <span class="dot colorCheck greenCheck"></span>
+            <span class="dot colorCheck blueCheck"></span>
+            3色の面チェック
+          </div>
         </div>
 
         <div class="meter">

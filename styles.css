@@ -141,6 +141,11 @@ canvas {
   border: 0;
 }
 
+.boundaryGroup[hidden],
+.colorLegend[hidden] {
+  display: none;
+}
+
 .boundaryGroup legend {
   grid-column: 1 / -1;
   margin-bottom: 2px;
@@ -307,6 +312,23 @@ button.primary {
 
 .dot.pale {
   background: #ffffff;
+}
+
+.dot.colorCheck {
+  width: 12px;
+  height: 12px;
+}
+
+.redCheck {
+  border-color: #d94b55;
+}
+
+.greenCheck {
+  border-color: #2fa66c;
+}
+
+.blueCheck {
+  border-color: #2b7bd8;
 }
 
 .meter {

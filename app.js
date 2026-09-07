@@ -28,6 +28,7 @@ const ui = {
   estimateCount: document.getElementById("estimateCount"),
   truthCount: document.getElementById("truthCount"),
   matchLabel: document.getElementById("matchLabel"),
+  colorLegend: document.getElementById("colorLegend"),
 };
 
 let code;
@@ -36,6 +37,9 @@ let layout;
 let hoveredVariable = null;
 let running = false;
 let timer = 0;
+
+const COLOR_CHECKS = ["#d94b55", "#2fa66c", "#2b7bd8"];
+const SQRT3_OVER_2 = Math.sqrt(3) / 2;
 
 function clamp(value, lo, hi) {
   return Math.max(lo, Math.min(hi, value));
@@ -154,6 +158,67 @@ function createSurfaceCode(size, p) {
   }
 
   return { type: "surface", size, checks, variables };
+}
+
+function colorPoint(row, column) {
+  return { x: column - row / 2, y: row * SQRT3_OVER_2 };
+}
+
+function isColorPlaquette(row, column) {
+  return ((column % 3) + 3) % 3 === (2 - (row % 3) + 3) % 3;
+}
+
+function createColorCode(requestedDistance, p) {
+  const distance = requestedDistance % 2 === 0 ? requestedDistance - 1 : requestedDistance;
+  const bound = (3 * (distance - 1)) / 2;
+  const variables = [];
+  const variableMap = new Map();
+  const checks = [];
+  const idFor = (row, column) => `${row},${column}`;
+
+  for (let row = 0; row <= bound; row += 1) {
+    for (let column = 0; column <= row; column += 1) {
+      if (isColorPlaquette(row, column)) continue;
+      const variable = {
+        id: variables.length,
+        row,
+        column,
+        raw: colorPoint(row, column),
+        checks: [],
+        error: Math.random() < p ? 1 : 0,
+      };
+      variables.push(variable);
+      variableMap.set(idFor(row, column), variable);
+    }
+  }
+
+  const neighbors = [
+    [-1, -1], [-1, 0], [0, -1], [0, 1], [1, 0], [1, 1],
+  ];
+  for (let row = 0; row <= bound; row += 1) {
+    for (let column = 0; column <= row; column += 1) {
+      if (!isColorPlaquette(row, column)) continue;
+      const check = {
+        id: checks.length,
+        row,
+        column,
+        raw: colorPoint(row, column),
+        colorIndex: row % 3,
+        variables: neighbors
+          .map(([dr, dc]) => variableMap.get(idFor(row + dr, column + dc)))
+          .filter(Boolean),
+        syndrome: 0,
+      };
+      checks.push(check);
+      for (const variable of check.variables) variable.checks.push(check);
+    }
+  }
+
+  for (const check of checks) {
+    check.syndrome = check.variables.reduce((sum, variable) => sum ^ variable.error, 0);
+  }
+
+  return { type: "color", size: distance, distance, bound, checks, variables };
 }
 
 function createLdpcCode(scale, p) {
@@ -429,22 +494,33 @@ function updateLabels() {
   const p = Number(ui.errorRate.value) / 100;
   const schedule = currentSchedule();
   ui.serialOrderGroup.hidden = schedule !== "serial";
+  ui.colorLegend.hidden = code.type !== "color";
+  ui.colorLegend.style.display = code.type === "color" ? "flex" : "none";
   ui.serialOrderValue.value = bp.serialOrder.map((id) => `v${id}`).join(" → ");
   if (code.type === "surface") {
     ui.sizeLabel.textContent = "格子サイズ";
     ui.distanceValue.value = `${ui.distance.value} x ${ui.distance.value}`;
     ui.modeDescription.textContent = `planar surface code: Zエラー / Xシンドローム · ${schedule === "serial" ? "serial" : "flooding"} schedule`;
     ui.boundaryGroup.hidden = false;
+    ui.boundaryGroup.style.display = "grid";
+  } else if (code.type === "color") {
+    ui.sizeLabel.textContent = "符号距離";
+    ui.distanceValue.value = `d=${code.distance} · n=${code.variables.length}`;
+    ui.modeDescription.textContent = `triangular 6.6.6 color code: Zエラー / X面シンドローム · ${schedule} schedule`;
+    ui.boundaryGroup.hidden = true;
+    ui.boundaryGroup.style.display = "none";
   } else if (code.type === "ldpc") {
     ui.sizeLabel.textContent = "LDPCサイズ";
     ui.distanceValue.value = `n=${code.variables.length}, m=${code.checks.length}`;
     ui.modeDescription.textContent = `classical LDPC: (${code.variableDegree},${code.checkDegree})-regular style Tanner graph · ${schedule} schedule`;
     ui.boundaryGroup.hidden = true;
+    ui.boundaryGroup.style.display = "none";
   } else {
     ui.sizeLabel.textContent = "BB code";
     ui.distanceValue.value = `n=${code.variables.length}, m=${code.checks.length}`;
     ui.modeDescription.textContent = `BB [[144,12,12]]: Hx=[A B], A=x^3+y+y^2, B=y^3+x+x^2 · ${schedule} schedule`;
     ui.boundaryGroup.hidden = true;
+    ui.boundaryGroup.style.display = "none";
   }
   ui.errorRateValue.value = p.toFixed(2);
   ui.dampingValue.value = (Number(ui.damping.value) / 100).toFixed(2);
@@ -485,6 +561,19 @@ function computeLayout() {
   const graphHeight = height - chartHeight - 20;
   const margin = Math.min(width, graphHeight) < 680 ? 54 : 76;
   const usable = Math.min(width - margin * 2, graphHeight - margin * 2);
+  const colorXs = code.type === "color" ? [...code.variables, ...code.checks].map((node) => node.raw.x) : [0];
+  const colorYs = code.type === "color" ? [...code.variables, ...code.checks].map((node) => node.raw.y) : [0];
+  const colorMinX = Math.min(...colorXs);
+  const colorMaxX = Math.max(...colorXs);
+  const colorMinY = Math.min(...colorYs);
+  const colorMaxY = Math.max(...colorYs);
+  const colorScale =
+    code.type === "color"
+      ? Math.min(
+          (width - margin * 2) / Math.max(1, colorMaxX - colorMinX),
+          (graphHeight - margin * 2) / Math.max(1, colorMaxY - colorMinY),
+        )
+      : 0;
   const bbStep = code.type === "bb144" ? Math.min((width - margin * 2) / code.lx, (graphHeight - margin * 2) / code.ly) : 0;
   const step =
     code.type === "surface"
@@ -512,10 +601,17 @@ function computeLayout() {
     width: width - 86,
     height: chartHeight - 36,
   };
-  return { width, height, graphHeight, margin, step, left, right, top, bottom, chart };
+  const colorWidth = (colorMaxX - colorMinX) * colorScale;
+  const colorHeight = (colorMaxY - colorMinY) * colorScale;
+  const colorLeft = (width - colorWidth) / 2 - colorMinX * colorScale;
+  const colorTop = (graphHeight - colorHeight) / 2 + 20 - colorMinY * colorScale;
+  return { width, height, graphHeight, margin, step, left, right, top, bottom, chart, colorScale, colorLeft, colorTop };
 }
 
 function pointForCheck(check) {
+  if (code.type === "color") {
+    return { x: layout.colorLeft + check.raw.x * layout.colorScale, y: layout.colorTop + check.raw.y * layout.colorScale };
+  }
   if (code.type === "bb144") {
     return { x: layout.left + check.x * layout.step, y: layout.top + check.y * layout.step };
   }
@@ -527,6 +623,11 @@ function pointForCheck(check) {
 }
 
 function pointForVariable(variable) {
+  if (code.type === "color") {
+    const x = layout.colorLeft + variable.raw.x * layout.colorScale;
+    const y = layout.colorTop + variable.raw.y * layout.colorScale;
+    return { x1: x, y1: y, x2: x, y2: y, mx: x, my: y };
+  }
   if (code.type === "bb144") return pointForBbVariable(variable);
   if (code.type !== "surface") return pointForLdpcVariable(variable);
   if (variable.boundary) return boundaryPointForVariable(variable);
@@ -645,7 +746,13 @@ function drawBackground() {
   ctx.fillStyle = "#17212b";
   ctx.font = "700 15px Inter, system-ui, sans-serif";
   ctx.fillText(
-    code.type === "surface" ? "Surface code Tanner graph" : code.type === "bb144" ? "BB [[144,12,12]] Tanner graph" : "Classical LDPC Tanner graph",
+    code.type === "surface"
+      ? "Surface code Tanner graph"
+      : code.type === "color"
+        ? "Triangular 6.6.6 color code Tanner graph"
+        : code.type === "bb144"
+          ? "BB [[144,12,12]] Tanner graph"
+          : "Classical LDPC Tanner graph",
     panelX + 16,
     panelY + 25,
   );
@@ -654,12 +761,38 @@ function drawBackground() {
   ctx.fillText(
     code.type === "surface"
       ? "syndrome vertices are connected by colored variable bonds"
+      : code.type === "color"
+        ? "data qubits sit on vertices; red, green and blue faces are parity checks"
       : code.type === "bb144"
         ? "12 x 6 periodic grid with A/B qubits offset at each site"
         : "colored bit nodes connect to parity checks",
     panelX + 16,
     panelY + 48,
   );
+}
+
+function drawColorFaces() {
+  if (code.type !== "color") return;
+  for (const check of code.checks) {
+    const center = pointForCheck(check);
+    const points = check.variables
+      .map((variable) => pointForVariable(variable))
+      .sort(
+        (a, b) =>
+          Math.atan2(a.my - center.y, a.mx - center.x) -
+          Math.atan2(b.my - center.y, b.mx - center.x),
+      );
+    if (points.length < 3) continue;
+    ctx.beginPath();
+    ctx.moveTo(points[0].mx, points[0].my);
+    for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i].mx, points[i].my);
+    ctx.closePath();
+    ctx.fillStyle = `${COLOR_CHECKS[check.colorIndex]}18`;
+    ctx.strokeStyle = `${COLOR_CHECKS[check.colorIndex]}55`;
+    ctx.lineWidth = 2;
+    ctx.fill();
+    ctx.stroke();
+  }
 }
 
 function drawTannerLinks() {
@@ -821,16 +954,23 @@ function drawChecks() {
   for (const check of code.checks) {
     const { x, y } = pointForCheck(check);
     ctx.beginPath();
-    if (code.type === "bb144") {
+    if (code.type === "color") {
+      ctx.arc(x, y, 12, 0, Math.PI * 2);
+    } else if (code.type === "bb144") {
       ctx.arc(x, y, 7.5, 0, Math.PI * 2);
     } else if (code.type !== "surface") {
       ctx.rect(x - 9, y - 9, 18, 18);
     } else {
       ctx.arc(x, y, 13, 0, Math.PI * 2);
     }
-    ctx.fillStyle = check.syndrome ? "#24303d" : "#ffffff";
+    ctx.fillStyle =
+      code.type === "color" && check.syndrome
+        ? COLOR_CHECKS[check.colorIndex]
+        : check.syndrome
+          ? "#24303d"
+          : "#ffffff";
     ctx.fill();
-    ctx.strokeStyle = check.syndrome ? "#24303d" : "#95a3b5";
+    ctx.strokeStyle = code.type === "color" ? COLOR_CHECKS[check.colorIndex] : check.syndrome ? "#24303d" : "#95a3b5";
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
@@ -966,6 +1106,7 @@ function render() {
   layout = computeLayout();
   updateLabels();
   drawBackground();
+  drawColorFaces();
   drawTannerLinks();
   drawMessagePulse();
   drawVariables();
@@ -999,6 +1140,7 @@ function rebuild(newErrors = true) {
   const codeSize = mode === "bb144" ? 144 : size;
   if (newErrors || !code || code.size !== codeSize || code.type !== mode) {
     if (mode === "surface") code = createSurfaceCode(size, p);
+    else if (mode === "color") code = createColorCode(size, p);
     else if (mode === "bb144") code = createBb144Code(p);
     else code = createLdpcCode(size, p);
   }
@@ -1064,6 +1206,11 @@ for (const codeMode of ui.codeModes) {
   codeMode.addEventListener("change", () => {
     setRunning(false);
     hoveredVariable = null;
+    const mode = currentMode();
+    ui.distance.min = "3";
+    ui.distance.max = mode === "color" ? "7" : "8";
+    ui.distance.step = mode === "color" ? "2" : "1";
+    if (mode === "color" && Number(ui.distance.value) % 2 === 0) ui.distance.value = "5";
     rebuild(true);
   });
 }
