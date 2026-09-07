@@ -72,7 +72,11 @@ function currentSerialOrderMode() {
 }
 
 function currentSerialDelay() {
-  return Number(ui.serialSpeedModes.find((input) => input.checked).value);
+  return Math.max(1, Number(ui.serialSpeedModes.find((input) => input.checked).value));
+}
+
+function currentSerialBatchSize() {
+  return Number(ui.serialSpeedModes.find((input) => input.checked).value) < 1 ? 10 : 1;
 }
 
 function createSerialOrder(variableCount) {
@@ -480,7 +484,7 @@ function stepSerialVariable() {
   }
 }
 
-function bpStep() {
+function bpStep(renderAfter = true) {
   if (currentSchedule() === "serial") {
     stepSerialVariable();
   } else if (bp.halfStep === 0) {
@@ -492,7 +496,7 @@ function bpStep() {
   bp.stepCount += 1;
   bp.history.push([...bp.posterior]);
   if (bp.history.length > 80) bp.history.shift();
-  render();
+  if (renderAfter) render();
 }
 
 function estimateErrors() {
@@ -1230,13 +1234,18 @@ function setRunning(value) {
   if (running) {
     const delay = currentSchedule() === "serial" ? currentSerialDelay() : 520;
     timer = window.setInterval(() => {
-      bpStep();
-      const estimate = estimateErrors();
-      const estimatedSyndrome = estimateSyndrome(estimate);
-      const unsat = estimatedSyndrome.filter((s, i) => s !== code.checks[i].syndrome).length;
-      const atIterationBoundary =
-        currentSchedule() === "serial" ? bp.serialIndex === 0 : bp.halfStep === 0;
-      if (unsat === 0 && bp.iteration > 0 && atIterationBoundary) setRunning(false);
+      const batchSize = currentSchedule() === "serial" ? currentSerialBatchSize() : 1;
+      for (let index = 0; index < batchSize && running; index += 1) {
+        bpStep(false);
+        const atIterationBoundary =
+          currentSchedule() === "serial" ? bp.serialIndex === 0 : bp.halfStep === 0;
+        if (!atIterationBoundary || bp.iteration === 0) continue;
+        const estimate = estimateErrors();
+        const estimatedSyndrome = estimateSyndrome(estimate);
+        const unsat = estimatedSyndrome.filter((s, i) => s !== code.checks[i].syndrome).length;
+        if (unsat === 0) setRunning(false);
+      }
+      render();
     }, delay);
   }
 }
