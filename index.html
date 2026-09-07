@@ -55,6 +55,17 @@
               <span>ランダム</span>
             </label>
           </fieldset>
+          <fieldset class="boundaryGroup serialSpeedGroup">
+            <legend>シリアル更新速度</legend>
+            <label>
+              <input type="radio" name="serialSpeed" value="42" checked />
+              <span>標準（42 ms）</span>
+            </label>
+            <label>
+              <input type="radio" name="serialSpeed" value="1" />
+              <span>最速（1 ms）</span>
+            </label>
+          </fieldset>
           <div class="orderDisplay">
             <span>実際の更新順序</span>
             <output id="serialOrderValue">v0 → v1 → ...</output>

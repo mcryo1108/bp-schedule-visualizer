@@ -4,6 +4,7 @@ const ctx = canvas.getContext("2d");
 const ui = {
   scheduleModes: [...document.querySelectorAll('input[name="scheduleMode"]')],
   serialOrderModes: [...document.querySelectorAll('input[name="serialOrderMode"]')],
+  serialSpeedModes: [...document.querySelectorAll('input[name="serialSpeed"]')],
   serialOrderGroup: document.getElementById("serialOrderGroup"),
   serialOrderValue: document.getElementById("serialOrderValue"),
   codeModes: [...document.querySelectorAll('input[name="codeMode"]')],
@@ -66,6 +67,10 @@ function currentSchedule() {
 
 function currentSerialOrderMode() {
   return ui.serialOrderModes.find((input) => input.checked).value;
+}
+
+function currentSerialDelay() {
+  return Number(ui.serialSpeedModes.find((input) => input.checked).value);
 }
 
 function createSerialOrder(variableCount) {
@@ -1188,7 +1193,7 @@ function setRunning(value) {
   if (timer) window.clearInterval(timer);
   timer = 0;
   if (running) {
-    const delay = currentSchedule() === "serial" ? 45 : 520;
+    const delay = currentSchedule() === "serial" ? currentSerialDelay() : 520;
     timer = window.setInterval(() => {
       bpStep();
       const estimate = estimateErrors();
@@ -1234,6 +1239,11 @@ for (const serialOrderMode of ui.serialOrderModes) {
   serialOrderMode.addEventListener("change", () => {
     setRunning(false);
     rebuild(false);
+  });
+}
+for (const serialSpeedMode of ui.serialSpeedModes) {
+  serialSpeedMode.addEventListener("change", () => {
+    if (running) setRunning(true);
   });
 }
 for (const codeMode of ui.codeModes) {

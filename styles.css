@@ -190,6 +190,10 @@ canvas {
   grid-template-columns: repeat(3, 1fr);
 }
 
+.serialOrderGroup .serialSpeedGroup {
+  grid-template-columns: repeat(2, 1fr);
+}
+
 .orderDisplay {
   display: grid;
   gap: 6px;
