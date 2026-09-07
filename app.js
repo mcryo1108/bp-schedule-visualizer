@@ -812,8 +812,8 @@ function drawColorFaces() {
 
 function drawTannerLinks() {
   ctx.lineCap = "round";
-  ctx.strokeStyle = code.type === "surface" ? "rgba(23, 33, 43, 0.12)" : code.type === "color" ? "#4a9bc8" : "rgba(99, 112, 131, 0.22)";
-  ctx.lineWidth = code.type === "surface" ? 12 : code.type === "color" ? 5.5 : code.type === "bb144" ? 1.15 : 1.5;
+  ctx.strokeStyle = code.type === "surface" ? "rgba(23, 33, 43, 0.12)" : "rgba(99, 112, 131, 0.22)";
+  ctx.lineWidth = code.type === "surface" ? 12 : code.type === "bb144" ? 1.15 : 1.5;
   for (const variable of code.variables) {
     const p = pointForVariable(variable);
     if (code.type === "bb144") {
@@ -826,6 +826,19 @@ function drawTannerLinks() {
         ctx.stroke();
       }
       ctx.globalAlpha = 1;
+    } else if (code.type === "color") {
+      for (const check of variable.checks) {
+        const c = pointForCheck(check);
+        ctx.beginPath();
+        ctx.moveTo(p.mx, p.my);
+        ctx.lineTo(c.x, c.y);
+        ctx.strokeStyle = "rgba(23, 33, 43, 0.22)";
+        ctx.lineWidth = 7.5;
+        ctx.stroke();
+        ctx.strokeStyle = logisticColor(bp.posterior[variable.id]);
+        ctx.lineWidth = 5.5;
+        ctx.stroke();
+      }
     } else if (code.type !== "surface") {
       for (const check of variable.checks) {
         const c = pointForCheck(check);
@@ -839,13 +852,6 @@ function drawTannerLinks() {
       ctx.moveTo(p.x1, p.y1);
       ctx.lineTo(p.x2, p.y2);
       ctx.stroke();
-      if (code.type === "color") {
-        ctx.strokeStyle = "rgba(23, 33, 43, 0.22)";
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        ctx.strokeStyle = "#4a9bc8";
-        ctx.lineWidth = 5.5;
-      }
     }
   }
 }
