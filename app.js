@@ -509,6 +509,23 @@ function estimateSyndrome(estimate) {
   );
 }
 
+function recomputeSyndromes() {
+  for (const check of code.checks) {
+    check.syndrome = check.variables.reduce((sum, variable) => sum ^ variable.error, 0);
+  }
+}
+
+function toggleVariableError(variable) {
+  setRunning(false);
+  variable.error ^= 1;
+  recomputeSyndromes();
+  ui.truthToggle.checked = true;
+  const p = Number(ui.errorRate.value) / 100;
+  bp = createBpState(code, p);
+  hoveredVariable = variable;
+  render();
+}
+
 function updateLabels() {
   const p = Number(ui.errorRate.value) / 100;
   const schedule = currentSchedule();
@@ -997,10 +1014,10 @@ function drawTooltip() {
   const llr = bp.posterior[hoveredVariable.id];
   const bit = llr < 0 ? 1 : 0;
   const prefix = code.type === "bb144" ? `${hoveredVariable.block}${hoveredVariable.id % 72}` : `v${hoveredVariable.id}`;
-  const lines = [prefix, `LLR ${llr.toFixed(3)}`, `estimate ${bit}`];
+  const lines = [prefix, `LLR ${llr.toFixed(3)}`, `estimate ${bit}`, `error ${hoveredVariable.error} · clickで反転`];
   ctx.font = "700 12px Inter, system-ui, sans-serif";
   const width = Math.max(...lines.map((line) => ctx.measureText(line).width)) + 22;
-  const height = 62;
+  const height = 78;
   const x = clamp(p.mx + 16, 10, layout.width - width - 10);
   const y = clamp(p.my - 76, 10, layout.graphHeight - height - 10);
 
@@ -1254,7 +1271,11 @@ function setRunning(value) {
 }
 
 ui.stepButton.addEventListener("click", bpStep);
-canvas.addEventListener("click", bpStep);
+canvas.addEventListener("click", (event) => {
+  const variable = variableAt(event.clientX, event.clientY);
+  if (variable) toggleVariableError(variable);
+  else bpStep();
+});
 canvas.addEventListener("mousemove", (event) => {
   const next = variableAt(event.clientX, event.clientY);
   if ((next && !hoveredVariable) || (!next && hoveredVariable) || (next && hoveredVariable && next.id !== hoveredVariable.id)) {
