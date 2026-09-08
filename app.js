@@ -4,7 +4,7 @@ const ctx = canvas.getContext("2d");
 const ui = {
   scheduleModes: [...document.querySelectorAll('input[name="scheduleMode"]')],
   serialOrderModes: [...document.querySelectorAll('input[name="serialOrderMode"]')],
-  serialSpeedModes: [...document.querySelectorAll('input[name="serialSpeed"]')],
+  updateSpeedModes: [...document.querySelectorAll('input[name="updateSpeed"]')],
   serialOrderGroup: document.getElementById("serialOrderGroup"),
   serialOrderValue: document.getElementById("serialOrderValue"),
   reshuffleOrderButton: document.getElementById("reshuffleOrderButton"),
@@ -71,12 +71,12 @@ function currentSerialOrderMode() {
   return ui.serialOrderModes.find((input) => input.checked).value;
 }
 
-function currentSerialDelay() {
-  return Math.max(1, Number(ui.serialSpeedModes.find((input) => input.checked).value));
+function currentUpdateDelay() {
+  return Math.max(1, Number(ui.updateSpeedModes.find((input) => input.checked).value));
 }
 
-function currentSerialBatchSize() {
-  return Number(ui.serialSpeedModes.find((input) => input.checked).value) < 1 ? 10 : 1;
+function currentUpdateBatchSize() {
+  return Number(ui.updateSpeedModes.find((input) => input.checked).value) < 1 ? 10 : 1;
 }
 
 function createSerialOrder(variableCount) {
@@ -1252,9 +1252,9 @@ function setRunning(value) {
   if (timer) window.clearInterval(timer);
   timer = 0;
   if (running) {
-    const delay = currentSchedule() === "serial" ? currentSerialDelay() : 520;
+    const delay = currentUpdateDelay();
     timer = window.setInterval(() => {
-      const batchSize = currentSchedule() === "serial" ? currentSerialBatchSize() : 1;
+      const batchSize = currentUpdateBatchSize();
       for (let index = 0; index < batchSize && running; index += 1) {
         bpStep(false);
         const atIterationBoundary =
@@ -1316,8 +1316,8 @@ ui.reshuffleOrderButton.addEventListener("click", () => {
   bp.activeVariableId = null;
   render();
 });
-for (const serialSpeedMode of ui.serialSpeedModes) {
-  serialSpeedMode.addEventListener("change", () => {
+for (const updateSpeedMode of ui.updateSpeedModes) {
+  updateSpeedMode.addEventListener("change", () => {
     if (running) setRunning(true);
   });
 }

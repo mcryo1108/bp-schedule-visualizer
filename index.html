@@ -56,23 +56,24 @@
               <span>ランダム</span>
             </label>
           </fieldset>
-          <fieldset class="boundaryGroup serialSpeedGroup">
-            <legend>シリアル更新速度</legend>
-            <label>
-              <input type="radio" name="serialSpeed" value="1" checked />
-              <span>標準（1 ms）</span>
-            </label>
-            <label>
-              <input type="radio" name="serialSpeed" value="0.1" />
-              <span>最速（100 µs相当）</span>
-            </label>
-          </fieldset>
           <div class="orderDisplay">
             <span>実際の更新順序</span>
             <output id="serialOrderValue">v0 → v1 → ...</output>
             <button id="reshuffleOrderButton" type="button" hidden>ランダム順序を再生成</button>
           </div>
         </div>
+
+        <fieldset class="boundaryGroup updateSpeedGroup">
+          <legend>BP更新速度</legend>
+          <label>
+            <input type="radio" name="updateSpeed" value="1" checked />
+            <span>標準（1 ms）</span>
+          </label>
+          <label>
+            <input type="radio" name="updateSpeed" value="0.1" />
+            <span>最速（100 µs相当）</span>
+          </label>
+        </fieldset>
 
         <fieldset class="boundaryGroup">
           <legend>符号モード</legend>
