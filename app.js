@@ -75,10 +75,6 @@ function currentUpdateDelay() {
   return Math.max(1, Number(ui.updateSpeedModes.find((input) => input.checked).value));
 }
 
-function currentUpdateBatchSize() {
-  return Number(ui.updateSpeedModes.find((input) => input.checked).value) < 1 ? 10 : 1;
-}
-
 function createSerialOrder(variableCount) {
   const order = Array.from({ length: variableCount }, (_, id) => id);
   const mode = currentSerialOrderMode();
@@ -1254,12 +1250,10 @@ function setRunning(value) {
   if (running) {
     const delay = currentUpdateDelay();
     timer = window.setInterval(() => {
-      const batchSize = currentUpdateBatchSize();
-      for (let index = 0; index < batchSize && running; index += 1) {
-        bpStep(false);
-        const atIterationBoundary =
-          currentSchedule() === "serial" ? bp.serialIndex === 0 : bp.halfStep === 0;
-        if (!atIterationBoundary || bp.iteration === 0) continue;
+      bpStep(false);
+      const atIterationBoundary =
+        currentSchedule() === "serial" ? bp.serialIndex === 0 : bp.halfStep === 0;
+      if (atIterationBoundary && bp.iteration > 0) {
         const estimate = estimateErrors();
         const estimatedSyndrome = estimateSyndrome(estimate);
         const unsat = estimatedSyndrome.filter((s, i) => s !== code.checks[i].syndrome).length;
