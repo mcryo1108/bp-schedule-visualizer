@@ -22,7 +22,8 @@
 このフォルダで次を実行します。
 
 ```sh
-python3 -m http.server 4173
+cd /Users/masudaryota/.codex/.chatgpt-projects/g-p-6a0c62f349d0819194a9ba840fc2af7e/bp-schedule-visualizer
+python3 -m http.server 4173 --bind 127.0.0.1
 ```
 
 ブラウザで `http://127.0.0.1:4173/` を開きます。
