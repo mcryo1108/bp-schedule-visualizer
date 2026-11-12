@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>d=3 回路レベルDEM / BP Visualizer</title>
+    <link rel="stylesheet" href="styles.css?v=20260914-2" />
+    <link rel="stylesheet" href="circuit-level.css?v=20260914-7" />
+  </head>
+  <body>
+    <main class="app circuitApp">
+      <section class="workspace" aria-label="circuit-level DEM visualizer">
+        <header class="topbar">
+          <div>
+            <h1>Superdense Color Code — 局所因子グラフ</h1>
+            <p id="modelSummary">d=3 · 3 rounds · SI1000 p=0.001 · H: 18 × 420</p>
+          </div>
+          <nav class="pageNav" aria-label="visualizer pages">
+            <a href="index.html">現象論モデル</a>
+            <a class="active" href="circuit-level.html">回路レベルDEM</a>
+          </nav>
+          <div class="stats" aria-live="polite">
+            <span id="demIteration">iteration 0</span>
+            <span id="demUnsat">残差 0</span>
+            <span id="demStatus">初期状態</span>
+          </div>
+        </header>
+
+        <div class="demCanvasShell">
+          <canvas id="demCanvas" width="1120" height="760"></canvas>
+          <button id="copyDemImage" class="copyImageButton" type="button">図とLLRをコピー</button>
+          <div id="nodeTooltip" class="nodeTooltip" role="tooltip"></div>
+          <div class="sceneGuide">
+            <strong>3D操作</strong>
+            <span id="viewModeLabel">斜め3D表示</span>
+            <span>ドラッグ：回転</span>
+            <span>ホイール／ピンチ：拡大</span>
+            <span>変数をクリック：誤り切替</span>
+            <span>検査をクリック：原因追跡</span>
+            <span>ノードに重ねる：詳細表示</span>
+          </div>
+          <div class="canvasKey">
+            <span><i class="keyDetector fired"></i>発火ディテクタ</span>
+            <span><i class="keyDetector residual"></i>未充足残差</span>
+            <span><i class="keyVariable"></i>選択変数</span>
+            <span><i class="keyVariable error"></i>誤りON</span>
+            <span><i class="keyVariable estimate"></i>BP推定1</span>
+            <span class="llrLegend"><b>LLR</b><em>負</em><i></i><em>0</em><i></i><em>正</em></span>
+          </div>
+        </div>
+
+        <section class="explanationStrip" aria-label="model explanation">
+          <div><strong>回路故障</strong><span>SI1000のゲート・測定・初期化・待機ノイズ</span></div>
+          <b>→</b>
+          <div><strong>DEM変数</strong><span>同じ検出イベントを生む故障を統合した候補</span></div>
+          <b>→</b>
+          <div><strong>ディテクタ</strong><span>ラウンド間で変化した検査結果</span></div>
+          <b>→</b>
+          <div><strong>BP</strong><span id="bpScopeDescription">全候補と全制約のメッセージ更新</span></div>
+        </section>
+      </section>
+
+      <aside class="panel" aria-label="controls">
+        <div class="modelNotice">
+          <strong>表示範囲とBP計算の範囲</strong>
+          <p>局所表示は同じ空間位置のスタビライザーを全時間層で追い、その時間列に接続するDEM変数とエッジを省略せず表示します。BP更新と残差判定は、表示外を含む全H行列で計算します。</p>
+        </div>
+
+        <div class="twoControls">
+          <div class="controlGroup">
+            <label for="codeDistance">符号距離・測定回数</label>
+            <select id="codeDistance">
+              <option value="3">d=3 / 3 rounds</option>
+              <option value="5">d=5 / 5 rounds</option>
+              <option value="7">d=7 / 7 rounds</option>
+            </select>
+          </div>
+          <div class="controlGroup">
+            <label for="physicalErrorRate">物理エラー率</label>
+            <select id="physicalErrorRate">
+              <option value="0.0001">0.01%</option>
+              <option value="0.0005">0.05%</option>
+              <option value="0.001" selected>0.1%</option>
+              <option value="0.002">0.2%</option>
+              <option value="0.005">0.5%</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="controlGroup">
+          <label for="focusDetector">中心スタビライザーの基準検査</label>
+          <output id="focusDetectorValue">D0</output>
+          <input id="focusDetector" type="range" min="0" max="17" value="0" />
+        </div>
+
+        <fieldset class="boundaryGroup scheduleGroup">
+          <legend>BP更新方式</legend>
+          <label><input type="radio" name="demSchedule" value="flooding" checked /><span>フロッディング</span></label>
+          <label><input type="radio" name="demSchedule" value="serial" /><span>シリアル</span></label>
+        </fieldset>
+
+        <div class="twoControls">
+          <div class="controlGroup">
+            <label for="runSpeed">連続更新速度</label>
+            <select id="runSpeed">
+              <option value="slow">低速</option>
+              <option value="fast">高速</option>
+            </select>
+            <small id="speedDescription">Flooding: 500 ms / 反復</small>
+          </div>
+          <div class="controlGroup">
+            <label for="randomErrorCount">ランダムDEM故障数</label>
+            <output id="randomErrorCountValue">1</output>
+            <input id="randomErrorCount" type="range" min="1" max="5" value="1" />
+          </div>
+        </div>
+
+        <div class="controlGroup">
+          <label for="demAlpha">NMS係数 α</label>
+          <output id="demAlphaValue">0.625</output>
+          <input id="demAlpha" type="range" min="250" max="1000" value="625" step="25" />
+        </div>
+
+        <fieldset class="boundaryGroup">
+          <legend>故障機構の選択</legend>
+          <label><input type="radio" name="degreeFilter" value="all" checked /><span>全次数</span></label>
+          <label><input type="radio" name="degreeFilter" value="1" /><span>次数1</span></label>
+        </fieldset>
+
+        <fieldset class="boundaryGroup sceneGroup">
+          <legend>3D表示範囲</legend>
+          <label><input type="radio" name="sceneFilter" value="local" checked /><span>中心時間列の全接続</span></label>
+          <label><input type="radio" name="sceneFilter" value="degree1" /><span>次数1をすべて</span></label>
+          <label><input type="radio" name="sceneFilter" value="all" /><span id="allVariablesLabel">全変数</span></label>
+        </fieldset>
+
+        <fieldset class="boundaryGroup inspectionRadiusGroup">
+          <legend>残差から展開する半径</legend>
+          <label><input type="radio" name="inspectionRadius" value="1" /><span>1：隣接変数</span></label>
+          <label><input type="radio" name="inspectionRadius" value="2" checked /><span>2：周辺検査</span></label>
+          <label><input type="radio" name="inspectionRadius" value="3" /><span>3：競合変数</span></label>
+        </fieldset>
+
+        <section class="inspectionCard" aria-live="polite">
+          <strong id="inspectionTitle">検査ノードをクリックして原因追跡</strong>
+          <p id="inspectionSummary">赤枠の未充足検査をクリックすると、その検査から半径2の構造を表示します。</p>
+          <button id="clearInspection" type="button" disabled>中心時間列の表示へ戻す</button>
+        </section>
+
+        <div class="controlGroup">
+          <label for="mechanismIndex">DEM変数</label>
+          <output id="mechanismIndexValue">v0</output>
+          <input id="mechanismIndex" type="range" min="0" max="419" value="0" />
+        </div>
+
+        <div class="buttonGrid">
+          <button id="randomMechanism" type="button">ランダム誤り生成</button>
+          <button id="nextDegreeOne" type="button">次の次数1</button>
+          <button id="demStep" class="primary" type="button">BP 1反復</button>
+          <button id="demRun" type="button">連続更新を開始</button>
+          <button id="demReset" type="button">BPを初期化</button>
+          <button id="clearErrors" type="button">誤りをすべて解除</button>
+          <button id="topView" class="primary" type="button">真上から見る</button>
+          <button id="resetView" type="button">斜め3Dに戻す</button>
+        </div>
+
+        <section class="mechanismCard" aria-live="polite">
+          <div><span>選択した変数</span><strong id="selectedVariable">v0</strong></div>
+          <div><span>誤り状態</span><strong id="selectedErrorState">OFF</strong></div>
+          <div><span>変数次数</span><strong id="selectedDegree">-</strong></div>
+          <div><span>発火ディテクタ</span><strong id="selectedDetectors">-</strong></div>
+          <div><span>統合確率</span><strong id="selectedProbability">-</strong></div>
+          <div><span>事前LLR</span><strong id="selectedPrior">-</strong></div>
+          <div><span>事後LLR</span><strong id="selectedPosterior">-</strong></div>
+          <div><span>論理観測量</span><strong id="selectedObservable">-</strong></div>
+        </section>
+
+        <section class="contributionCard" aria-live="polite">
+          <div class="matrixHeading"><strong>選択変数の事後LLR分解</strong><span id="contributionTotal">-</span></div>
+          <div id="selectedContributions" class="contributionList"></div>
+        </section>
+
+        <section class="matrixPreview" aria-label="parity check matrix preview">
+          <div class="matrixHeading"><strong>局所パリティ検査行列 H</strong><span id="matrixScope">行=検査、列=DEM変数</span></div>
+          <div id="matrixTable" class="matrixTable"></div>
+        </section>
+
+        <p id="dataProvenance" class="dataProvenance">Chromobius/ClorcoのSuperdense回路へSI1000を適用し、Stim DEMを非分解・重複統合して生成しています。</p>
+      </aside>
+    </main>
+
+    <script src="circuit-level.js?v=20260914-7"></script>
+  </body>
+</html>

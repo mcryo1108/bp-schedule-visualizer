@@ -3,17 +3,20 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Flooding / Serial BP Visualizer</title>
-    <link rel="stylesheet" href="styles.css" />
+    <title>BPの計算をたどる</title>
+    <link rel="stylesheet" href="styles.css?v=large-20261025" /><link rel="stylesheet" href="trace.css?v=layout-20261029" />
+  <link rel="stylesheet" href="metrics.css?v=20261112" />
   </head>
   <body>
     <main class="app">
       <section class="workspace" aria-label="BP visualizer">
         <header class="topbar">
           <div>
-            <h1>Flooding / Serial BP Visualizer</h1>
+            <h1>BPの計算をたどる</h1>
             <p id="modeDescription">Zエラー / Xシンドロームの belief propagation</p>
           </div>
+
+          <nav class="pageNav" aria-label="visualizer pages"><a class="active" href="index.html">格子上のBP</a><a href="circuit-level.html">回路レベルDEM</a></nav>
           <div class="stats" aria-live="polite">
             <span id="phaseLabel">初期状態</span>
             <span id="iterationLabel">iteration 0</span>
@@ -25,9 +28,38 @@
           <canvas id="bpCanvas" width="1100" height="820"></canvas>
           <button id="copyImageButton" class="copyImageButton" type="button">図とLLRをコピー</button>
         </div>
+
+        <section class="traceTracking" aria-label="LLR追跡" style="padding:12px;border:1px solid #d6dde7;border-radius:8px;background:#fff">
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <label for="llrBit">追跡ビット</label>
+            <select id="llrBit" aria-label="追跡ビット"><option value="">全ビット</option></select>
+            <button id="llrExportAll" type="button">全ビットのCSV</button>
+            <button id="llrExportSelected" type="button" disabled>選択ビットのCSV</button>
+          </div>
+          <label for="llrCursor" style="display:block;margin-top:12px">数値を見るステップ</label>
+          <input id="llrCursor" type="range" min="0" max="0" value="0" step="1" style="width:100%">
+          <output id="llrValue" style="display:block;font-variant-numeric:tabular-nums;overflow-wrap:anywhere"></output>
+          <p style="font-size:13px;color:#637083;margin-bottom:0">図のビットをShift＋クリックしても選択できます。グラフ・CSVは初期状態からの事後LLRを記録します。リセット・誤り変更・符号変更で履歴は新しくなります。CSVの数値は表示用に丸めません。</p>
+        </section>
+
+        <section class="tracePanel" aria-label="全ノードの計算記録" tabindex="0">
+          <div class="traceHeading"><div><h2>全ノードの計算記録</h2><p id="tracePrior"></p></div><span id="traceCount"></span></div>
+          <div class="traceToolbar">
+            <label>調べるノード <select id="traceNode" aria-label="調べるノード"></select></label>
+            <button id="traceShowAll" type="button">LLRを全ビット表示に戻す</button>
+            <button id="traceBack" type="button">参照元から戻る</button>
+            <button id="traceHome" type="button">この時刻の値へ戻る</button>
+            <button id="traceExport" type="button">全記録を保存</button>
+            <label class="fileButton">記録を開く<input type="file" id="traceImport" accept=".json" /></label>
+          </div>
+          <p class="traceHelp">ノードを選ぶと、LLRヒストリーもそのビットに絞られます。「LLRを全ビット表示に戻す」で絞り込みだけ解除できます。計算記録は消えません。ノードをShift＋クリックすると選択できます。数値の参照先を押すと、その値を作った更新へ遡ります。記録は計算上の依存関係を示します。</p>
+          <div id="traceImportStatus" role="status"></div>
+          <div class="traceColumns"><div id="traceSnapshot"></div><div id="traceDetail"></div></div>
+        </section>
       </section>
 
       <aside class="panel" aria-label="controls">
+
         <fieldset class="boundaryGroup scheduleGroup">
           <legend>BP更新方式</legend>
           <label>
@@ -39,6 +71,13 @@
             <span>シリアル</span>
           </label>
         </fieldset>
+
+        <fieldset class="boundaryGroup">
+          <legend>BPアルゴリズム</legend>
+          <label><input type="radio" name="algorithmMode" value="sum-product" checked /><span>サムプロダクト</span></label>
+          <label><input type="radio" name="algorithmMode" value="min-sum" /><span>ミンサム</span></label>
+        </fieldset>
+        <p class="traceHelp">ミンサムは補正係数1。更新順序は上の更新方式で指定します。アルゴリズムを切り替えると、同じ誤り配置・ノード順序で初期状態から計算し直します。記録を残す場合は先に保存してください。</p>
 
         <div id="serialOrderGroup" class="serialOrderGroup" hidden>
           <fieldset class="boundaryGroup">
@@ -78,11 +117,11 @@
         <fieldset class="boundaryGroup">
           <legend>符号モード</legend>
           <label>
-            <input type="radio" name="codeMode" value="surface" checked />
+            <input type="radio" name="codeMode" value="surface" />
             <span>表面符号</span>
           </label>
           <label>
-            <input type="radio" name="codeMode" value="color" />
+            <input type="radio" name="codeMode" value="color" checked />
             <span>カラー符号</span>
           </label>
           <label>
@@ -105,6 +144,29 @@
           <label for="errorRate">エラー率 p</label>
           <input id="errorRate" type="range" min="1" max="28" value="12" />
           <output id="errorRateValue">0.12</output>
+        </div>
+
+        <fieldset class="boundaryGroup errorGenerationGroup">
+          <legend>エラー生成</legend>
+          <label>
+            <input type="radio" name="errorGenerationMode" value="probability" checked />
+            <span>確率 p</span>
+          </label>
+          <label>
+            <input type="radio" name="errorGenerationMode" value="bounded" />
+            <span>訂正保証内</span>
+          </label>
+        </fieldset>
+
+        <div id="boundedErrorGroup" class="boundedErrorGroup" hidden>
+          <div class="controlGroup">
+            <label for="exactErrorCount">生成するデータ誤り数</label>
+            <output id="exactErrorCountValue">2</output>
+            <input id="exactErrorCount" type="range" min="0" max="2" value="2" />
+          </div>
+          <p id="correctionLimitNote" class="controlNote">d=5 の訂正保証数は t=2</p>
+          <button id="samplePatternsButton" type="button">1,000パターン集計</button>
+          <div id="sampleSummary" class="sampleSummary" aria-live="polite" hidden></div>
         </div>
 
         <div class="controlGroup">
@@ -168,6 +230,7 @@
       </aside>
     </main>
 
-    <script src="app.js"></script>
+    <script src="trace.js?v=algorithm-20261025"></script><script src="app.js?v=algorithm-20261025"></script>
+  <script src="metrics.js?v=20261112"></script>
   </body>
 </html>

@@ -1,0 +1,40 @@
+.app {grid-template-columns:minmax(0,1fr) 310px;gap:12px;padding:12px}
+.workspace,.panel{box-shadow:none}
+.workspace{grid-template-rows:auto minmax(320px,1fr) minmax(270px,.85fr)}
+h1{font-size:21px}.topbar{padding:12px 18px}.topbar p{margin:5px 0;font-size:12px}
+.tracePanel{border-top:1px solid var(--line);overflow:auto;padding:14px 18px;background:#fafbfc;font-size:13px}
+.traceHeading{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.traceHeading h2{font-size:17px;margin:0}.traceHeading p{margin:5px 0;color:var(--muted)}
+#traceCount{font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+.traceToolbar{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:9px 0}
+.traceToolbar button,.traceToolbar select,.fileButton{padding:7px 10px;font-size:12px;min-height:32px;border:1px solid var(--line);border-radius:5px;background:white;color:var(--ink)}
+.fileButton{cursor:pointer}.fileButton input{display:none}
+.traceHelp,.traceSub{color:var(--muted);font-size:12px;line-height:1.55}.traceHelp{margin:7px 0 12px}
+.traceColumns{display:grid;grid-template-columns:minmax(180px,.7fr) minmax(270px,1.3fr);gap:22px}
+.traceColumns h3{margin:0 0 8px;font-size:14px}.traceColumns h4{margin:15px 0 6px;font-size:12px}
+.traceRef{display:block;text-align:left;width:100%;background:white;border:1px solid var(--line);border-radius:4px;padding:7px 9px;margin:5px 0;font-size:12px;cursor:pointer;overflow-wrap:anywhere}
+.traceRef:hover{border-color:#755099;background:#f5f0fa}.traceRef strong{margin-left:8px;font-variant-numeric:tabular-nums}.traceRef small{display:block;color:var(--muted);margin-top:3px}
+.traceEventTitle{display:flex;justify-content:space-between;gap:8px}.traceEventTitle strong{color:#704497;font-size:17px;font-variant-numeric:tabular-nums}
+.traceFormula{font-family:ui-monospace,monospace;background:#eef2f6;padding:10px;line-height:1.6;overflow-wrap:anywhere}
+.traceTerm{margin:2px 0 10px 10px;color:var(--muted);font-family:ui-monospace,monospace;font-size:11px}
+#traceImportStatus{color:#704497;margin-bottom:8px}
+@media(max-width:1080px){.app{grid-template-columns:1fr}.panel{order:0;max-height:420px;overflow:auto}.workspace{min-height:900px;grid-template-rows:auto 480px auto}.traceColumns{grid-template-columns:1fr 1.3fr}}
+@media(max-width:600px){.traceColumns{grid-template-columns:1fr}.traceHeading{display:block}}
+canvas{min-height:0}
+@media(max-width:1080px){.workspace{align-content:start;grid-template-rows:max-content 480px max-content;min-height:0}.topbar{justify-content:flex-start}.tracePanel{max-height:650px}.app{align-content:start}.panel{min-height:300px}}
+
+/* Keep the graph readable; let the document grow below it. */
+body{height:auto;min-height:100vh;overflow:auto}
+.app{height:auto;min-height:100vh;align-items:start}
+.workspace{display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.canvasShell{flex:none;overflow:auto}
+canvas{height:1000px;min-height:1000px;max-width:none}
+.panel{position:sticky;top:12px;max-height:calc(100vh - 24px)}
+.tracePanel{overflow:visible;max-height:none}
+.topbar{flex-wrap:wrap}
+@media(max-width:1080px){.workspace{min-height:0}.panel{position:static;max-height:none}.tracePanel{max-height:none}}
+
+/* History controls belong with the inspector; scroll the record independently. */
+.traceTracking{margin:0 12px 12px;flex:none}
+.workspace .tracePanel{height:clamp(360px,70vh,760px);max-height:760px;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;flex:none;resize:vertical}
+.tracePanel:focus-visible{outline:2px solid var(--green);outline-offset:-2px}

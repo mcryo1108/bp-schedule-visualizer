@@ -1,0 +1,349 @@
+.circuitApp {
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+
+.circuitApp .workspace {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.demCanvasShell {
+  position: relative;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+#demCanvas {
+  min-height: 0;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+
+#demCanvas.dragging {
+  cursor: grabbing;
+}
+
+.sceneGuide {
+  position: absolute;
+  left: 22px;
+  top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 14px;
+  align-items: center;
+  max-width: calc(100% - 44px);
+  padding: 9px 12px;
+  border: 1px solid #c8d6e4;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #24364a;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.sceneGuide strong {
+  color: #1267a8;
+}
+
+.canvasKey {
+  position: absolute;
+  top: 72px;
+  right: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-width: 440px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  border-color: #cad7e4;
+  background: rgba(255, 255, 255, 0.96);
+  color: #26384b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.canvasKey span {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.canvasKey i {
+  display: inline-block;
+}
+
+.keyDetector {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #506176;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.keyDetector.fired {
+  background: #05070a;
+}
+
+.keyDetector.residual {
+  border-color: #d94b55;
+  background: #ffe5e7;
+}
+
+.keyVariable {
+  width: 15px;
+  height: 8px;
+  border-radius: 8px;
+  background: #4d9bd3;
+  border: 3px solid #e0a82e;
+}
+
+.keyVariable.error {
+  background: #e02f43;
+  border-color: #e4475b;
+  box-shadow: none;
+}
+
+.keyVariable.estimate {
+  border-color: #69418f;
+  background: #8a55b5;
+}
+
+.llrLegend { gap: 4px !important; }
+.llrLegend b { margin-right: 2px; }
+.llrLegend em { color: #6b7887; font-style: normal; font-weight: 600; }
+.llrLegend i:nth-of-type(1) { width: 42px; height: 10px; border: 1px solid #b7c3ce; border-radius: 2px; background: linear-gradient(90deg, #e02f43, #fff); }
+.llrLegend i:nth-of-type(2) { width: 42px; height: 10px; border: 1px solid #b7c3ce; border-radius: 2px; background: linear-gradient(90deg, #fff, #146fd1); }
+
+.sceneGroup {
+  grid-template-columns: 1fr;
+}
+
+.inspectionRadiusGroup {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.inspectionCard,
+.contributionCard {
+  display: grid;
+  gap: 8px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7f9fc;
+}
+
+.inspectionCard p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.inspectionCard button {
+  min-height: 34px;
+}
+
+.contributionList {
+  display: grid;
+  gap: 4px;
+  max-height: 180px;
+  overflow: auto;
+  font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.contributionItem {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  padding: 5px 7px;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.contributionItem.negative { color: #bd2d42; }
+.contributionItem.positive { color: #145fa9; }
+
+.twoControls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.twoControls .controlGroup {
+  margin: 0;
+}
+
+.controlGroup select {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  color: #17212b;
+}
+
+.matrixPreview {
+  display: grid;
+  gap: 8px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7f9fc;
+}
+
+.matrixHeading {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.matrixHeading strong { font-size: 13px; }
+.matrixHeading span { color: var(--muted); font-size: 12px; }
+
+.matrixTable {
+  display: grid;
+  gap: 2px;
+  overflow: auto;
+  max-height: 176px;
+  font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.matrixRow {
+  display: grid;
+  grid-template-columns: 34px repeat(var(--matrix-cols), 18px);
+  gap: 2px;
+}
+
+.matrixCell {
+  display: grid;
+  place-items: center;
+  height: 18px;
+  border-radius: 3px;
+  background: #e6ebf1;
+  color: #768394;
+}
+
+.matrixCell.one { background: #253c55; color: #fff; }
+.matrixCell.selected { outline: 2px solid #e0a82e; outline-offset: -1px; }
+
+.nodeTooltip {
+  position: absolute;
+  z-index: 4;
+  display: none;
+  max-width: 260px;
+  padding: 9px 11px;
+  border: 1px solid #b8c8d8;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  color: #17212b;
+  font-size: 12px;
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+.explanationStrip {
+  display: grid;
+  grid-template-columns: repeat(7, auto);
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.explanationStrip div {
+  display: grid;
+  gap: 2px;
+  max-width: 210px;
+}
+
+.explanationStrip strong {
+  font-size: 13px;
+}
+
+.explanationStrip span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.explanationStrip b {
+  color: var(--green);
+}
+
+.modelNotice {
+  padding: 12px;
+  border-left: 4px solid var(--gold);
+  background: #fff8e8;
+}
+
+.modelNotice strong {
+  font-size: 14px;
+}
+
+.modelNotice p {
+  margin-top: 5px;
+  color: #4f5967;
+  line-height: 1.55;
+}
+
+.mechanismCard {
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.mechanismCard div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.mechanismCard span,
+.dataProvenance {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.mechanismCard strong {
+  max-width: 180px;
+  overflow-wrap: anywhere;
+  text-align: right;
+  font-size: 13px;
+}
+
+.mechanismCard .errorOn {
+  color: #d83f55;
+}
+
+.dataProvenance {
+  margin: 0;
+  line-height: 1.5;
+}
+
+@media (max-width: 1080px) {
+  .circuitApp {
+    grid-template-columns: 1fr;
+  }
+
+  #demCanvas {
+    min-height: 720px;
+  }
+
+  .explanationStrip {
+    grid-template-columns: 1fr;
+  }
+
+  .explanationStrip b {
+    transform: rotate(90deg);
+    justify-self: center;
+  }
+}

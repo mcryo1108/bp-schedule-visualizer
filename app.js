@@ -15,6 +15,13 @@ const ui = {
   distanceValue: document.getElementById("distanceValue"),
   errorRate: document.getElementById("errorRate"),
   errorRateValue: document.getElementById("errorRateValue"),
+  errorGenerationModes: [...document.querySelectorAll('input[name="errorGenerationMode"]')],
+  boundedErrorGroup: document.getElementById("boundedErrorGroup"),
+  exactErrorCount: document.getElementById("exactErrorCount"),
+  exactErrorCountValue: document.getElementById("exactErrorCountValue"),
+  correctionLimitNote: document.getElementById("correctionLimitNote"),
+  samplePatternsButton: document.getElementById("samplePatternsButton"),
+  sampleSummary: document.getElementById("sampleSummary"),
   damping: document.getElementById("damping"),
   dampingValue: document.getElementById("dampingValue"),
   boundaryGroup: document.getElementById("boundaryGroup"),
@@ -34,6 +41,15 @@ const ui = {
   colorLegend: document.getElementById("colorLegend"),
 };
 
+const llrUi = {
+  bit: document.getElementById("llrBit"),
+  cursor: document.getElementById("llrCursor"),
+  value: document.getElementById("llrValue"),
+  all: document.getElementById("llrExportAll"),
+  selected: document.getElementById("llrExportSelected"),
+};
+let llrFollowLatest = true;
+let llrOptionsKey = "";
 let code;
 let bp;
 let layout;
@@ -75,6 +91,23 @@ function currentUpdateDelay() {
   return Math.max(1, Number(ui.updateSpeedModes.find((input) => input.checked).value));
 }
 
+function currentErrorGenerationMode() {
+  return ui.errorGenerationModes.find((input) => input.checked).value;
+}
+
+function codeDistanceForGeneration() {
+  if (!code) return null;
+  if (code.type === "color") return code.distance;
+  if (code.type === "surface") return code.size;
+  if (code.type === "bb144") return 12;
+  return null;
+}
+
+function correctableErrorLimit() {
+  const distance = codeDistanceForGeneration();
+  return distance === null ? null : Math.floor((distance - 1) / 2);
+}
+
 function createSerialOrder(variableCount) {
   const order = Array.from({ length: variableCount }, (_, id) => id);
   const mode = currentSerialOrderMode();
@@ -90,6 +123,14 @@ function shuffled(items) {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
+}
+
+function setExactErrorPattern(count) {
+  for (const variable of code.variables) variable.error = 0;
+  for (const variableId of shuffled(code.variables.map((variable) => variable.id)).slice(0, count)) {
+    code.variables[variableId].error = 1;
+  }
+  recomputeSyndromes();
 }
 
 function reshuffledOrder(current) {
@@ -347,6 +388,7 @@ function createBb144Code(p) {
 }
 
 function createBpState(surfaceCode, p) {
+  llrFollowLatest = true;
   const prior = Math.log((1 - p) / p);
   const vToC = new Map();
   const cToV = new Map();
@@ -356,12 +398,13 @@ function createBpState(surfaceCode, p) {
       cToV.set(`${check.id}:${variable.id}`, 0);
     }
   }
-  return {
+  const state = {
     prior,
     vToC,
     cToV,
     posterior: new Array(surfaceCode.variables.length).fill(prior),
     history: [new Array(surfaceCode.variables.length).fill(prior)],
+    traceMeta: [{ step: 0, iteration: 0, phase: "initial", schedule: currentSchedule(), damping: Number(ui.damping.value) / 100, activeVariable: "", unsatisfied: surfaceCode.checks.filter(c => c.syndrome !== 0).length }],
     iteration: 0,
     stepCount: 0,
     halfStep: 0,
@@ -370,6 +413,12 @@ function createBpState(surfaceCode, p) {
     serialOrder: createSerialOrder(surfaceCode.variables.length),
     activeVariableId: null,
   };
+  state.trace = new BPTrace(surfaceCode, state);
+  return state;
+}
+
+function currentAlgorithm() {
+  return document.querySelector('input[name="algorithmMode"]:checked')?.value || 'sum-product';
 }
 
 function atanhSafe(x) {
@@ -383,6 +432,7 @@ function updatePosterior() {
       value += bp.cToV.get(`${check.id}:${variable.id}`);
     }
     bp.posterior[variable.id] = value;
+    bp.trace.posterior(variable, bp, value);
   }
 }
 
@@ -390,15 +440,10 @@ function stepChecks() {
   const damping = Number(ui.damping.value) / 100;
   for (const check of code.checks) {
     for (const target of check.variables) {
-      let product = check.syndrome ? -1 : 1;
-      for (const variable of check.variables) {
-        if (variable.id === target.id) continue;
-        product *= Math.tanh(bp.vToC.get(`${variable.id}:${check.id}`) / 2);
-      }
       const key = `${check.id}:${target.id}`;
       const previous = bp.cToV.get(key);
-      const next = 2 * atanhSafe(product);
-      bp.cToV.set(key, previous * damping + next * (1 - damping));
+      const next = checkMessage(check, target);
+      traceSetC(check, target, key, previous, next, damping);
     }
   }
   bp.halfStep = 1;
@@ -417,7 +462,7 @@ function stepVariables() {
       }
       const key = `${variable.id}:${target.id}`;
       const previous = bp.vToC.get(key);
-      bp.vToC.set(key, previous * damping + value * (1 - damping));
+      traceSetV(variable, target, key, previous, value, damping);
     }
   }
   bp.halfStep = 0;
@@ -427,6 +472,17 @@ function stepVariables() {
 }
 
 function checkMessage(check, target) {
+  if (currentAlgorithm() === 'min-sum') {
+    let sign = check.syndrome ? -1 : 1, minimum = Infinity;
+    for (const variable of check.variables) {
+      if (variable.id === target.id) continue;
+      const value = bp.vToC.get(`${variable.id}:${check.id}`);
+      sign *= Math.sign(value);
+      minimum = Math.min(minimum, Math.abs(value));
+    }
+    // A degree-one parity check forces its only bit; use the existing SPA finite cap.
+    return sign * (minimum === Infinity ? 2 * atanhSafe(1) : minimum);
+  }
   let product = check.syndrome ? -1 : 1;
   for (const variable of check.variables) {
     if (variable.id === target.id) continue;
@@ -455,7 +511,7 @@ function stepSerialVariable() {
     const key = `${check.id}:${variable.id}`;
     const previous = bp.cToV.get(key);
     const next = checkMessage(check, variable);
-    bp.cToV.set(key, previous * damping + next * (1 - damping));
+    traceSetC(check, variable, key, previous, next, damping);
   }
 
   let posterior = bp.prior;
@@ -463,12 +519,13 @@ function stepSerialVariable() {
     posterior += bp.cToV.get(`${check.id}:${variable.id}`);
   }
   bp.posterior[variable.id] = posterior;
+  bp.trace.posterior(variable, bp, posterior);
 
   for (const check of variable.checks) {
     const key = `${variable.id}:${check.id}`;
     const previous = bp.vToC.get(key);
     const next = variableMessage(variable, check);
-    bp.vToC.set(key, previous * damping + next * (1 - damping));
+    traceSetV(variable, check, key, previous, next, damping);
   }
 
   bp.active = "serial";
@@ -481,8 +538,14 @@ function stepSerialVariable() {
 }
 
 function bpStep(renderAfter = true) {
+  if (bp.trace.readOnly) { setRunning(false); document.getElementById("traceImportStatus").textContent = "保存記録を閲覧中です。新しい計算はリセットして開始します。"; return; }
+  bp.trace.begin(bp.stepCount + 1, bp.iteration, currentSchedule(), Number(ui.damping.value) / 100, bp.serialOrder);
   if (currentSchedule() === "serial") {
-    stepSerialVariable();
+    // One step records a full serial sweep, followed by the hard decision below.
+    do {
+      stepSerialVariable();
+    } while (bp.serialIndex !== 0);
+    bp.activeVariableId = null;
   } else if (bp.halfStep === 0) {
     bp.activeVariableId = null;
     stepChecks();
@@ -491,7 +554,11 @@ function bpStep(renderAfter = true) {
   }
   bp.stepCount += 1;
   bp.history.push([...bp.posterior]);
-  if (bp.history.length > 80) bp.history.shift();
+  bp.traceMeta.push({ step: bp.stepCount, iteration: bp.iteration,
+    phase: bp.active, schedule: currentSchedule(), damping: Number(ui.damping.value) / 100,
+    activeVariable: bp.activeVariableId ?? "",
+    unsatisfied: estimateSyndrome(estimateErrors()).filter((s, i) => s !== code.checks[i].syndrome).length });
+  bp.trace.snapshot(bp);
   if (renderAfter) render();
 }
 
@@ -513,6 +580,18 @@ function recomputeSyndromes() {
 
 function toggleVariableError(variable) {
   setRunning(false);
+  const limit = correctableErrorLimit();
+  const currentCount = code.variables.reduce((sum, item) => sum + item.error, 0);
+  if (
+    currentErrorGenerationMode() === "bounded" &&
+    variable.error === 0 &&
+    limit !== null &&
+    currentCount >= limit
+  ) {
+    ui.sampleSummary.hidden = false;
+    ui.sampleSummary.textContent = `訂正保証内モードでは、データ誤り数を t=${limit} 以下に制限しています。`;
+    return;
+  }
   variable.error ^= 1;
   recomputeSyndromes();
   ui.truthToggle.checked = true;
@@ -556,7 +635,24 @@ function updateLabels() {
     ui.boundaryGroup.style.display = "none";
   }
   ui.errorRateValue.value = p.toFixed(2);
+  const generationMode = currentErrorGenerationMode();
+  const limit = correctableErrorLimit();
+  const boundedOption = ui.errorGenerationModes.find((input) => input.value === "bounded");
+  boundedOption.disabled = limit === null;
+  if (generationMode === "bounded" && limit === null) {
+    ui.errorGenerationModes.find((input) => input.value === "probability").checked = true;
+  }
+  const boundedActive = currentErrorGenerationMode() === "bounded" && limit !== null;
+  ui.boundedErrorGroup.hidden = !boundedActive;
+  ui.errorRate.disabled = boundedActive;
+  if (limit !== null) {
+    ui.exactErrorCount.max = String(limit);
+    if (Number(ui.exactErrorCount.value) > limit) ui.exactErrorCount.value = String(limit);
+    ui.exactErrorCountValue.value = ui.exactErrorCount.value;
+    ui.correctionLimitNote.textContent = `d=${codeDistanceForGeneration()} のデータ誤り訂正保証数は t=${limit}。生成数をこの範囲に制限します。`;
+  }
   ui.dampingValue.value = (Number(ui.damping.value) / 100).toFixed(2);
+  document.getElementById("tracePrior").textContent = `事前LLR ${bp.prior.toPrecision(7)} · p=${(1 / (1 + Math.exp(bp.prior))).toPrecision(3)} · 全ノードを常時記録`;
 
   const estimate = estimateErrors();
   const estimatedSyndrome = estimateSyndrome(estimate);
@@ -569,11 +665,11 @@ function updateLabels() {
       : bp.active === "variables"
         ? "全variableを同時更新"
         : bp.active === "serial"
-          ? `variable v${bp.activeVariableId}を逐次更新`
+          ? "全variableを逐次更新 → ハード判定"
           : "初期状態";
   ui.iterationLabel.textContent =
     schedule === "serial"
-      ? `step ${bp.stepCount} / sweep ${bp.iteration} · ${bp.serialIndex}/${code.variables.length}`
+      ? `step ${bp.stepCount} / sweep ${bp.iteration}`
       : `step ${bp.stepCount} / iteration ${bp.iteration}`;
   ui.unsatLabel.textContent = `unsatisfied ${unsat}`;
   ui.estimateCount.textContent = String(estimate.reduce((sum, bit) => sum + bit, 0));
@@ -582,6 +678,17 @@ function updateLabels() {
 }
 
 function computeLayout() {
+  // Reserve space per lattice point instead of squeezing the graph into the viewport.
+  const extent = code.type === "color"
+    ? Math.max(...code.variables.map(node => node.raw.y)) - Math.min(...code.variables.map(node => node.raw.y))
+    : code.type === "bb144" ? code.ly : code.type === "surface" ? code.size - 1 : 6;
+  const graphPixels = Math.max(720, extent * 100 + 200);
+  const minWidth = code.type === "bb144" ? code.lx * 100 + 160
+    : code.type === "color"
+      ? Math.max(900, (Math.max(...code.variables.map(node => node.raw.x)) - Math.min(...code.variables.map(node => node.raw.x))) * 100 + 160)
+      : code.type === "surface" ? Math.max(900, (code.size - 1) * 100 + 160) : Math.max(1000, code.variables.length * 44 + 180);
+  canvas.style.width = `${Math.max(minWidth, canvas.parentElement.clientWidth - 24)}px`;
+  canvas.style.height = `${graphPixels + 280}px`;
   const rect = canvas.getBoundingClientRect();
   const ratio = window.devicePixelRatio || 1;
   canvas.width = Math.max(900, Math.round(rect.width * ratio));
@@ -605,12 +712,12 @@ function computeLayout() {
       ? Math.min(
           (width - margin * 2) / Math.max(1, colorMaxX - colorMinX),
           (graphHeight - margin * 2) / Math.max(1, colorMaxY - colorMinY),
-        ) * 0.7
+        )
       : 0;
   const bbStep = code.type === "bb144" ? Math.min((width - margin * 2) / code.lx, (graphHeight - margin * 2) / code.ly) : 0;
   const step =
       code.type === "surface"
-      ? usable / (code.size - 1) * 0.6
+      ? usable / (code.size - 1)
       : code.type === "bb144"
         ? bbStep
         : usable / Math.max(1, code.variables.length - 1);
@@ -880,7 +987,7 @@ function drawVariables() {
     const p = pointForVariable(variable);
     const llr = bp.posterior[variable.id];
     const isHovered = hoveredVariable && hoveredVariable.id === variable.id;
-    const isActiveSerial = bp.active === "serial" && bp.activeVariableId === variable.id;
+    const isActiveSerial = bp.active === "serial" && (bp.activeVariableId === null || bp.activeVariableId === variable.id);
 
     if (code.type === "bb144") {
       ctx.fillStyle = logisticColor(llr);
@@ -1070,7 +1177,7 @@ function drawMessagePulse() {
   for (const check of code.checks) {
     const c = pointForCheck(check);
     for (const variable of check.variables) {
-      if (bp.active === "serial" && variable.id !== bp.activeVariableId) continue;
+      if (bp.active === "serial" && bp.activeVariableId !== null && variable.id !== bp.activeVariableId) continue;
       const p = pointForVariable(variable);
       const target = code.type === "bb144" ? nearestPeriodicCheckPoint(check, p) : c;
       ctx.beginPath();
@@ -1088,9 +1195,15 @@ function variableColor(id) {
 
 function drawLlrChart() {
   const { x, y, width, height } = layout.chart;
-  const minLlr = -8;
-  const maxLlr = 8;
+  const selectedId = llrUi.bit.value === "" ? null : Number(llrUi.bit.value);
   const history = bp.history;
+  let extent = 8;
+  for (const row of history) {
+    if (selectedId !== null) extent = Math.max(extent, Math.abs(row[selectedId]));
+    else for (const value of row) extent = Math.max(extent, Math.abs(value));
+  }
+  const minLlr = -Math.ceil(extent);
+  const maxLlr = Math.ceil(extent);
   const steps = Math.max(1, history.length - 1);
 
   drawRoundedRect(x - 14, y - 12, width + 26, height + 32, 8);
@@ -1108,7 +1221,7 @@ function drawLlrChart() {
   ctx.lineTo(x + width, y + height);
   ctx.stroke();
 
-  for (const tick of [-8, -4, 0, 4, 8]) {
+  for (const tick of [minLlr, minLlr / 2, 0, maxLlr / 2, maxLlr]) {
     const yy = y + ((maxLlr - tick) / (maxLlr - minLlr)) * height;
     ctx.strokeStyle = tick === 0 ? "#9aa8b9" : "#e5eaf1";
     ctx.beginPath();
@@ -1127,7 +1240,8 @@ function drawLlrChart() {
   ctx.rect(x, y, width, height);
   ctx.clip();
   for (const variable of code.variables) {
-    const isHovered = hoveredVariable && hoveredVariable.id === variable.id;
+    if (selectedId !== null && variable.id !== selectedId) continue;
+    const isHovered = selectedId === variable.id || (hoveredVariable && hoveredVariable.id === variable.id);
     ctx.strokeStyle = isHovered ? "#17212b" : variableColor(variable.id);
     ctx.globalAlpha = isHovered || !hoveredVariable ? 0.42 : 0.12;
     ctx.lineWidth = isHovered ? 3 : 1.35;
@@ -1144,7 +1258,7 @@ function drawLlrChart() {
   ctx.restore();
   ctx.globalAlpha = 1;
 
-  const latestX = x + ((history.length - 1) / steps) * width;
+  const latestX = x + (Number(llrUi.cursor.value) / steps) * width;
   ctx.strokeStyle = "#1d9a7a";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
@@ -1156,7 +1270,7 @@ function drawLlrChart() {
   ctx.font = "700 13px Inter, system-ui, sans-serif";
   ctx.textAlign = "left";
   ctx.textBaseline = "bottom";
-  ctx.fillText("LLR history", x, y - 16);
+  ctx.fillText(selectedId === null ? "LLR history · 全ビット" : `LLR history · v${selectedId}`, x, y - 16);
   ctx.fillStyle = "#637083";
   ctx.font = "12px Inter, system-ui, sans-serif";
   ctx.textAlign = "center";
@@ -1176,8 +1290,11 @@ function drawLlrChart() {
 }
 
 function render() {
+  updateLlrControls();
   layout = computeLayout();
   updateLabels();
+  const livePosterior = bp.posterior;
+  bp.posterior = bp.history[Number(llrUi.cursor.value)] || livePosterior;
   drawBackground();
   drawColorFaces();
   drawTannerLinks();
@@ -1187,6 +1304,9 @@ function render() {
   drawChecks();
   drawTooltip();
   drawLlrChart();
+  drawTraceOverlay();
+  bp.posterior = livePosterior;
+  renderTraceInspector();
 }
 
 async function copyCanvasImage() {
@@ -1237,9 +1357,43 @@ function rebuild(newErrors = true) {
     else if (mode === "color") code = createColorCode(size, p);
     else if (mode === "bb144") code = createBb144Code(p);
     else code = createLdpcCode(size, p);
+    const limit = correctableErrorLimit();
+    if (currentErrorGenerationMode() === "bounded" && limit !== null) {
+      const count = Math.min(Number(ui.exactErrorCount.value), limit);
+      setExactErrorPattern(count);
+    }
   }
   bp = createBpState(code, p);
   render();
+}
+
+function sampleBoundedPatterns(sampleCount = 1000) {
+  const limit = correctableErrorLimit();
+  if (limit === null) return;
+  const errorCount = Math.min(Number(ui.exactErrorCount.value), limit);
+  const syndromeHistogram = new Map();
+  for (let sample = 0; sample < sampleCount; sample += 1) {
+    const chosen = new Set(
+      shuffled(code.variables.map((variable) => variable.id)).slice(0, errorCount),
+    );
+    let syndromeWeight = 0;
+    for (const check of code.checks) {
+      const syndrome = check.variables.reduce(
+        (parity, variable) => parity ^ Number(chosen.has(variable.id)),
+        0,
+      );
+      syndromeWeight += syndrome;
+    }
+    syndromeHistogram.set(syndromeWeight, (syndromeHistogram.get(syndromeWeight) || 0) + 1);
+  }
+  const weightOne = syndromeHistogram.get(1) || 0;
+  const common = [...syndromeHistogram.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([weight, count]) => `重み${weight}: ${count}回`)
+    .join(" / ");
+  ui.sampleSummary.hidden = false;
+  ui.sampleSummary.textContent = `${errorCount}個のデータ誤りを${sampleCount.toLocaleString()}回生成：シンドローム重み1は${weightOne}回（${(100 * weightOne / sampleCount).toFixed(1)}%）。${common}`;
 }
 
 function setRunning(value) {
@@ -1264,10 +1418,65 @@ function setRunning(value) {
   }
 }
 
+
+function updateLlrControls() {
+  const key = `${code.type}:${code.variables.length}`;
+  if (key !== llrOptionsKey) {
+    const previous = llrUi.bit.value;
+    llrUi.bit.replaceChildren(new Option("全ビット", ""), ...code.variables.map(v => new Option(`v${v.id}`, String(v.id))));
+    llrUi.bit.value = code.variables.some(v => String(v.id) === previous) ? previous : "";
+    llrOptionsKey = key;
+  }
+  llrUi.cursor.max = String(bp.history.length - 1);
+  if (llrFollowLatest) llrUi.cursor.value = llrUi.cursor.max;
+  const index = Number(llrUi.cursor.value);
+  const meta = bp.traceMeta[index];
+  const id = llrUi.bit.value;
+  llrUi.selected.disabled = id === "";
+  llrUi.value.textContent = `step ${meta.step} / iteration ${meta.iteration} · ${meta.phase} · 未充足 ${meta.unsatisfied}` +
+    (id === "" ? " · ビットを選ぶと数値を表示" : ` · v${id}: LLR = ${bp.history[index][Number(id)]} · 硬判定 ${bp.history[index][Number(id)] < 0 ? 1 : 0}`);
+  llrUi.selected.textContent = id === "" ? "選択ビットのCSV" : `v${id}のCSV`;
+}
+
+function llrCsv(selectedOnly) {
+  const ids = selectedOnly ? [Number(llrUi.bit.value)] : code.variables.map(v => v.id);
+  const columns = ["step", "iteration", "phase", "schedule", "damping", "active_variable", "unsatisfied", "code", "size", "prior_llr", "error_bits", "syndrome", ...ids.map(id => `v${id}_llr`)];
+  const errorBits = code.variables.filter(v => v.error).map(v => v.id).join(";");
+  const syndrome = code.checks.map(c => c.syndrome).join("");
+  const rows = bp.history.map((values, index) => {
+    const m = bp.traceMeta[index];
+    return [m.step, m.iteration, m.phase, m.schedule, m.damping, m.activeVariable, m.unsatisfied, code.type, code.size, bp.prior, errorBits, syndrome, ...ids.map(id => values[id])];
+  });
+  const escape = value => '"' + String(value).replaceAll('"', '""') + '"';
+  return "\ufeff" + [columns, ...rows].map(row => row.map(escape).join(",")).join("\r\n") + "\r\n";
+}
+
+function downloadLlrCsv(selectedOnly) {
+  const url = URL.createObjectURL(new Blob([llrCsv(selectedOnly)], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `bp-llr-${code.type}-${selectedOnly ? `v${llrUi.bit.value}` : "all"}-${new Date().toISOString().replaceAll(":", "-")}.csv`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+llrUi.bit.addEventListener("change", render);
+llrUi.cursor.addEventListener("input", () => {
+  llrFollowLatest = llrUi.cursor.value === llrUi.cursor.max;
+  render();
+});
+llrUi.all.addEventListener("click", () => downloadLlrCsv(false));
+llrUi.selected.addEventListener("click", () => downloadLlrCsv(true));
+
 ui.stepButton.addEventListener("click", bpStep);
 canvas.addEventListener("click", (event) => {
+  if (traceGraphClick(event)) return;
   const variable = variableAt(event.clientX, event.clientY);
-  if (variable) toggleVariableError(variable);
+  if (variable && event.shiftKey) {
+    llrUi.bit.value = String(variable.id);
+    render();
+  } else if (variable) toggleVariableError(variable);
   else bpStep();
 });
 canvas.addEventListener("mousemove", (event) => {
@@ -1335,6 +1544,20 @@ ui.errorRate.addEventListener("input", () => {
   setRunning(false);
   rebuild(true);
 });
+for (const generationMode of ui.errorGenerationModes) {
+  generationMode.addEventListener("change", () => {
+    setRunning(false);
+    ui.sampleSummary.hidden = true;
+    rebuild(true);
+  });
+}
+ui.exactErrorCount.addEventListener("input", () => {
+  setRunning(false);
+  ui.exactErrorCountValue.value = ui.exactErrorCount.value;
+  ui.sampleSummary.hidden = true;
+  rebuild(true);
+});
+ui.samplePatternsButton.addEventListener("click", () => sampleBoundedPatterns(1000));
 for (const boundaryMode of ui.boundaryModes) {
   boundaryMode.addEventListener("change", () => {
     setRunning(false);
@@ -1347,3 +1570,14 @@ ui.damping.addEventListener("input", () => {
 window.addEventListener("resize", render);
 
 rebuild(true);
+
+for (const input of document.querySelectorAll('input[name="algorithmMode"]')) {
+  input.addEventListener('change', () => {
+    setRunning(false);
+    const order = bp.serialOrder.slice();
+    rebuild(false);
+    bp.serialOrder = order;
+    bp.trace.frames[0].order = order.slice();
+    render();
+  });
+}
