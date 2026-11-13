@@ -134,7 +134,10 @@ function startEnsemble(manual) {
   orders.forEach((order, index) => {
     const card = document.createElement('section'); card.className='ensembleHistoryCard';
     const heading = document.createElement('h3'); heading.textContent=`BP ${index+1} · LLR history`;
-    const slot = document.createElement('div'); card.append(heading,slot); ensembleUi.Charts.append(card); job.chartSlots.push(slot);
+    const slot = document.createElement('div');
+    const schedule = document.createElement('p'); schedule.className='ensembleCardOrder'; schedule.setAttribute('aria-label',`BP ${index+1}の更新順序`);
+    schedule.textContent='更新順序: '+order.map(id=>`v${id}`).join(' → ');
+    card.append(heading,slot,schedule); ensembleUi.Charts.append(card); job.chartSlots.push(slot);
 
     const row = document.createElement('tr'); row.dataset.pending = 'true';
     const cells = [`BP ${index+1}`, '実行中', '0', '—', '—'];

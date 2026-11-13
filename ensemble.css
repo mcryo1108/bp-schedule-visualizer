@@ -25,3 +25,5 @@
 .ensembleHistoryControls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:12px 0; }
 .ensembleHistoryControls button { padding:8px 14px; }
 .ensembleFocusValue { overflow-wrap:anywhere; font-variant-numeric:tabular-nums; min-height:2em; }
+
+.overview #ensembleResults .ensembleCardOrder { margin:8px 0 0; padding:7px; background:#f3f6fa; border-radius:4px; font-size:12px; line-height:1.7; overflow-wrap:anywhere; }
