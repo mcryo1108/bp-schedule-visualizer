@@ -40,7 +40,22 @@ function ensembleChart(history, bound, maxIterations) {
   }
   return svg;
 }
+function drawEnsembleOrders(job) {
+  let wrap=document.getElementById('ensembleOrderComparison');
+  if(!wrap){wrap=document.createElement('div');wrap.id='ensembleOrderComparison';ensembleUi.Charts.before(wrap);}
+  if(wrap.dataset.focus===String(ensembleFocus)&&wrap._job===job)return;
+  wrap._job=job;wrap.dataset.focus=String(ensembleFocus);wrap.replaceChildren();
+  const title=document.createElement('h3');title.textContent='更新順序を比較（左から順に更新）';wrap.append(title);
+  const help=document.createElement('p');help.textContent='同じ色は同じノードです。ノードをクリックすると、全BPでその位置とLLRの線を強調します。順序は各BPで全スイープ共通です。';wrap.append(help);
+  const clear=document.createElement('button');clear.textContent='強調を解除';clear.onclick=()=>{ensembleFocus=null;ensembleBitSelect.value='';drawEnsembleHistories(job)};wrap.append(clear);
+  const scroller=document.createElement('div');scroller.className='ensembleOrderScroll';
+  const table=document.createElement('table');table.className='ensembleOrderMatrix';
+  const head=table.createTHead().insertRow();for(const text of ['BP',...job.orders[0].map((_,i)=>String(i+1)+'番'), '選択ノードの位置']){const th=document.createElement('th');th.textContent=text;head.append(th);}
+  const body=table.createTBody();job.orders.forEach((order,i)=>{const row=body.insertRow();row.insertCell().textContent='BP '+(i+1);order.forEach(bit=>{const cell=row.insertCell();const b=document.createElement('button');b.textContent='v'+bit;b.style.background=`hsl(${bit*137.5%360},65%,90%)`;b.className=ensembleFocus===bit?'orderSelected':ensembleFocus===null?'':'orderDim';b.setAttribute('aria-pressed',String(ensembleFocus===bit));b.onclick=()=>{ensembleFocus=bit;ensembleBitSelect.value=String(bit);drawEnsembleHistories(job)};cell.append(b);});row.insertCell().textContent=ensembleFocus===null?'—':`v${ensembleFocus}: ${order.indexOf(ensembleFocus)+1}番目`;});
+  scroller.append(table);wrap.append(scroller);
+}
 function drawEnsembleHistories(job) {
+  drawEnsembleOrders(job);
   let bound = 1;
   for (const history of job.histories) for (const row of history) for (const value of row) bound = Math.max(bound, Math.abs(value));
   job.chartSlots.forEach((slot,i) => {

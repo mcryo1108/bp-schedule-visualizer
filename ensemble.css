@@ -27,3 +27,10 @@
 .ensembleFocusValue { overflow-wrap:anywhere; font-variant-numeric:tabular-nums; min-height:2em; }
 
 .overview #ensembleResults .ensembleCardOrder { margin:8px 0 0; padding:7px; background:#f3f6fa; border-radius:4px; font-size:12px; line-height:1.7; overflow-wrap:anywhere; }
+
+.ensembleOrderScroll { overflow-x:auto; }
+.ensembleOrderMatrix { border-collapse:collapse; font-size:11px; width:max-content; }
+.ensembleOrderMatrix th,.ensembleOrderMatrix td { padding:3px; white-space:nowrap; text-align:center; border-bottom:1px solid #dde3eb; }
+.ensembleOrderMatrix button { padding:5px; min-width:34px; border:2px solid transparent; border-radius:4px; color:#233044; cursor:pointer; }
+.ensembleOrderMatrix .orderSelected { border-color:#704497; font-weight:bold; }
+.ensembleOrderMatrix .orderDim { opacity:.35; }
