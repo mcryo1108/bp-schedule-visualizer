@@ -66,6 +66,7 @@ function advanceWorker() {
   } catch(error) { workerSteps=null; self.postMessage({type:'error',message:error.message}); }
 }
 self.onmessage = event => {
+  if(event.data.type==='pause') { clearTimeout(workerTimer); if(workerInput) workerInput.manual=true; self.postMessage({type:'paused'}); return; }
   if(event.data.type==='step') { if(workerInput?.manual) advanceWorker(); return; }
   if(event.data.type==='resume') { if(workerInput?.manual) { workerInput.manual=false; advanceWorker(); } return; }
   clearTimeout(workerTimer); workerInput=event.data; workerSteps=serialBPSteps(workerInput); advanceWorker();

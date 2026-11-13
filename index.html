@@ -6,7 +6,7 @@
     <title>BPの計算をたどる</title>
     <link rel="stylesheet" href="styles.css?v=large-20261025" /><link rel="stylesheet" href="trace.css?v=layout-20261029" />
   <link rel="stylesheet" href="metrics.css?v=20261112" />
-    <link rel="stylesheet" href="ensemble.css?v=step-20261113" />
+    <link rel="stylesheet" href="ensemble.css?v=focus-20261113" />
   <link rel="stylesheet" href="llr-values.css?v=20261113" />
   </head>
   <body>
@@ -55,6 +55,12 @@
           <h2>ランダムBPの並列結果</h2>
           <p id="ensembleSummary"></p>
           <p>BP stepで全BPを1スイープずつ更新できます。Runで自動更新します。各BPのLLR履歴を同時表示します。横軸・縦軸とビットの色は全グラフで共通です。</p>
+          <div class="ensembleHistoryControls">
+            <button id="ensembleHistoryRun" type="button">Run / 再開</button>
+            <button id="ensembleHistoryStop" type="button">Stop / 一時停止</button>
+            <button id="ensembleHistoryStep" type="button">BP step</button>
+            <label>強調するビット <select id="ensembleFocusBit"><option value="">全ビット</option></select></label>
+          </div>
           <div id="ensembleCharts" class="ensembleHistoryGrid"></div>
           <p>シンドローム一致は論理訂正の成功を保証しません。各BPは別Workerで実行し、実際のCPU同時実行数は端末に依存します。各BPのLLR履歴は保存しますが、単体Runの全メッセージ計算記録は保存しません。</p>
           <div class="ensembleTableWrap"><table><thead><tr><th>BP</th><th>状態</th><th>反復数</th><th>未充足数</th><th>詳細</th></tr></thead><tbody id="ensembleRows"></tbody></table></div>
@@ -263,6 +269,6 @@
 
     <script src="trace.js?v=algorithm-20261025"></script><script src="app.js?v=llr-values-20261113"></script>
   <script src="metrics.js?v=20261112"></script>
-    <script src="ensemble.js?v=step-20261113"></script>
+    <script src="ensemble.js?v=focus-20261113"></script>
   </body>
 </html>

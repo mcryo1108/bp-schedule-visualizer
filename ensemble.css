@@ -21,3 +21,7 @@
 
 #ensembleCharts svg { display:block; width:100%; height:auto; aspect-ratio:640/200; min-height:0; max-height:none; }
 #ensembleCharts { align-items:start; }
+
+.ensembleHistoryControls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:12px 0; }
+.ensembleHistoryControls button { padding:8px 14px; }
+.ensembleFocusValue { overflow-wrap:anywhere; font-variant-numeric:tabular-nums; min-height:2em; }

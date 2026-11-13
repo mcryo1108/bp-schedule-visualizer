@@ -1,0 +1,13 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+let messages=[],timers=new Map(),nextId=0;
+const c=vm.createContext({self:{postMessage:m=>messages.push(m)},performance,setTimeout:fn=>{timers.set(++nextId,fn);return nextId},clearTimeout:id=>timers.delete(id)});
+vm.runInContext(fs.readFileSync(require('path').join(__dirname,'../ensemble-worker.js'),'utf8'),c);
+c.input={graph:{variables:[{id:0,checks:[0,1]},{id:1,checks:[0,1]}],checks:[{id:0,variables:[0,1],syndrome:0},{id:1,variables:[0,1],syndrome:1}]},prior:2,damping:.25,algorithm:'sum-product',order:[1,0],maxIterations:5};
+vm.runInContext('self.onmessage({data:input})',c);assert.strictEqual(timers.size,1);
+vm.runInContext("self.onmessage({data:{type:'pause'}})",c);assert.strictEqual(timers.size,0);
+assert.strictEqual(messages.filter(m=>m.type==='progress').at(-1).iteration,1);
+vm.runInContext("self.onmessage({data:{type:'step'}})",c);assert.strictEqual(timers.size,0);
+assert.strictEqual(messages.filter(m=>m.type==='progress').at(-1).iteration,2);
+vm.runInContext("self.onmessage({data:{type:'resume'}})",c);assert.strictEqual(timers.size,1);
+assert.strictEqual(messages.filter(m=>m.type==='progress').at(-1).iteration,3);
+console.log('Worker pause preserves state; single step and resume continue at the next sweep.');
