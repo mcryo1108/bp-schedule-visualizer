@@ -14,3 +14,7 @@
 #ensembleResults summary { cursor:pointer; }
 #ensembleResults canvas { width:100%; height:auto; display:block; min-width:180px; }
 .ensembleOrder { overflow-wrap:anywhere; max-width:600px; }
+
+.ensembleHistoryGrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr)); gap:12px; }
+.ensembleHistoryCard { min-width:0; border:1px solid var(--line); border-radius:6px; padding:10px; }
+.ensembleHistoryCard h3 { font-size:14px; margin:0 0 8px; }

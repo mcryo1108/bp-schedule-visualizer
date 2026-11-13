@@ -1,5 +1,5 @@
 /* Each worker owns an independent BP state. The supplied order is fixed per run. */
-function runSerialBP({graph, prior, damping, algorithm, order, maxIterations, stopOnConvergence = true}, progress = () => {}) {
+function* serialBPSteps({graph, prior, damping, algorithm, order, maxIterations, stopOnConvergence = true}, progress = () => {}) {
   const n = graph.variables.length;
   if (!Number.isInteger(maxIterations) || maxIterations < 1 || maxIterations > 500 ||
       order.length !== n || new Set(order).size !== n || order.some(id => !Number.isInteger(id) || id < 0 || id >= n) ||
@@ -41,15 +41,27 @@ function runSerialBP({graph, prior, damping, algorithm, order, maxIterations, st
       }
     }
     history.push(posterior.slice()); remaining = unsatisfied(); unsatisfiedHistory.push(remaining);
-    if (iteration % 10 === 0 || remaining === 0 || iteration === maxIterations) progress({iteration, unsatisfied: remaining});
+    yield {iteration, unsatisfied: remaining, posterior: posterior.slice()};
     if (stopOnConvergence && remaining === 0) break;
   }
   return {order, history, unsatisfiedHistory, posterior, estimate: posterior.map(x => Number(x < 0)),
     iterations: history.length - 1, unsatisfied: remaining, converged: remaining === 0, computeMs: performance.now() - start};
 }
-self.onmessage = event => {
+function runSerialBP(input, progress = () => {}) {
+  const steps = serialBPSteps(input); let next;
+  do { next = steps.next(); if (!next.done) progress(next.value); } while (!next.done);
+  return next.value;
+}
+self.onmessage = async event => {
   try {
-    const result = runSerialBP(event.data, value => self.postMessage({type: 'progress', ...value}));
-    self.postMessage({type: 'done', result});
-  } catch (error) { self.postMessage({type: 'error', message: error.message}); }
+    const steps = serialBPSteps(event.data); let next;
+    do {
+      next = steps.next();
+      if (!next.done) {
+        self.postMessage({type:'progress', ...next.value});
+        await new Promise(resolve => setTimeout(resolve, Math.max(16, event.data.delay || 20)));
+      }
+    } while (!next.done);
+    self.postMessage({type:'done', result:next.value});
+  } catch (error) { self.postMessage({type:'error',message:error.message}); }
 };

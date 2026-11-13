@@ -1,5 +1,5 @@
 /* Parallel random serial schedules, with a frozen input shared by all workers. */
-const ensembleUi = Object.fromEntries(['Count','Iterations','Start','Stop','Status','Settings','Results','Summary','Rows'].map(key => [key, document.getElementById(`ensemble${key}`)]));
+const ensembleUi = Object.fromEntries(['Count','Iterations','Start','Stop','Status','Settings','Results','Summary','Rows','Charts'].map(key => [key, document.getElementById(`ensemble${key}`)]));
 let ensembleJob = null;
 function updateEnsembleVisibility() {
   ensembleUi.Settings.hidden = currentSchedule() !== 'serial' || currentSerialOrderMode() !== 'random';
@@ -19,23 +19,34 @@ function uniqueRandomOrders(n, count) {
   }
   return orders;
 }
-function ensembleChart(history) {
+function ensembleChart(history, bound, maxIterations) {
   const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 160;
   canvas.setAttribute('aria-label', 'このBPの全ビットLLR履歴');
   const context = canvas.getContext('2d');
-  let bound = 1;
-  for (const row of history) for (const value of row) bound = Math.max(bound, Math.abs(value));
+
   context.fillStyle = '#ffffff'; context.fillRect(0, 0, 640, 160);
   context.strokeStyle = '#d6dde7'; context.beginPath(); context.moveTo(35, 75); context.lineTo(630, 75); context.stroke();
-  context.fillStyle = '#637083'; context.font = '12px sans-serif'; context.fillText(bound.toFixed(1), 0, 16); context.fillText((-bound).toFixed(1), 0, 142); context.fillText('0', 35, 157); context.fillText(`sweep ${history.length-1}`, 540, 157);
+  context.fillStyle = '#637083'; context.font = '12px sans-serif'; context.fillText(bound.toFixed(1), 0, 16); context.fillText((-bound).toFixed(1), 0, 142); context.fillText('0', 35, 157); context.fillText(`sweep 0–${maxIterations}`, 540, 157);
   for (let bit = 0; bit < history[0].length; bit++) {
     context.strokeStyle = `hsla(${bit * 137.5 % 360},65%,42%,.65)`; context.lineWidth = 1; context.beginPath();
-    history.forEach((row, i) => { const x = 35 + i / Math.max(1, history.length-1) * 595, y = 75 - row[bit] / bound * 65; if (i) context.lineTo(x,y); else context.moveTo(x,y); }); context.stroke();
+    history.forEach((row, i) => { const x = 35 + i / Math.max(1, maxIterations) * 595, y = 75 - row[bit] / bound * 65; if (i) context.lineTo(x,y); else context.moveTo(x,y); }); context.stroke();
   }
   return canvas;
 }
+function drawEnsembleHistories(job) {
+  let bound = 1;
+  for (const history of job.histories) for (const row of history) for (const value of row) bound = Math.max(bound, Math.abs(value));
+  job.chartSlots.forEach((slot,i) => slot.replaceChildren(ensembleChart(job.histories[i],bound,job.maxIterations)));
+}
+ui.runButton.addEventListener('click', event => {
+  if (currentSchedule() !== 'serial' || currentSerialOrderMode() !== 'random') return;
+  event.stopImmediatePropagation();
+  if (ensembleJob) stopEnsemble(); else ensembleUi.Start.click();
+}, true);
 function finishEnsemble(job) {
   if (ensembleJob !== job || job.workers.size || job.launching) return;
+  drawEnsembleHistories(job);
+  ui.runButton.textContent = "Run";
   ensembleJob = null; ensembleUi.Start.disabled = false; ensembleUi.Stop.disabled = true;
   ensembleUi.Status.textContent = `完了 ${job.finished}/${job.count}本 · シンドローム一致 ${job.converged}本 · 経過 ${((performance.now()-job.started)/1000).toFixed(2)}秒`;
   ensembleUi.Summary.textContent = `${job.description} · ${ensembleUi.Status.textContent}`;
@@ -59,13 +70,19 @@ ensembleUi.Start.addEventListener('click', () => {
   const prior = Math.log((1-Number(ui.errorRate.value)/100)/(Number(ui.errorRate.value)/100));
   let orders;
   try { orders = uniqueRandomOrders(graph.variables.length, count); } catch (error) { ensembleUi.Status.textContent = error.message; return; }
-  const job = {count, finished:0, converged:0, workers:new Set(), rows:[], started:performance.now(), launching:true}; ensembleJob = job;
+  const job = {count, finished:0, converged:0, workers:new Set(), rows:[], started:performance.now(), launching:true, histories:orders.map(()=>[new Array(graph.variables.length).fill(prior)]), chartSlots:[], maxIterations}; ensembleJob = job;
+  ensembleUi.Charts.replaceChildren();
   ensembleUi.Rows.replaceChildren(); ensembleUi.Results.hidden = false;
+  ui.runButton.textContent = "Pause";
   ensembleUi.Start.disabled = true; ensembleUi.Stop.disabled = false;
   ensembleUi.Status.textContent = `${count}本を並列実行中`;
   ensembleUi.Summary.textContent = `${graph.label || graph.type} · n=${graph.variables.length} · ${algorithm} · p=${ui.errorRate.value/100} · damping=${damping} · 最大${maxIterations} sweep · 真の誤り: ${graph.variables.filter(v=>v.error).map(v=>`v${v.id}`).join(', ') || 'なし'}（開始時の条件を固定）`;
   job.description = ensembleUi.Summary.textContent;
   orders.forEach((order, index) => {
+    const card = document.createElement('section'); card.className='ensembleHistoryCard';
+    const heading = document.createElement('h3'); heading.textContent=`BP ${index+1} · LLR history`;
+    const slot = document.createElement('div'); card.append(heading,slot); ensembleUi.Charts.append(card); job.chartSlots.push(slot);
+
     const row = document.createElement('tr'); row.dataset.pending = 'true';
     const cells = [`BP ${index+1}`, '実行中', '0', '—', '—'];
     for (const value of cells) { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }
@@ -79,7 +96,7 @@ ensembleUi.Start.addEventListener('click', () => {
     }
     let worker;
     try {
-      worker = new Worker('ensemble-worker.js?v=20261113'); job.workers.add(worker);
+      worker = new Worker('ensemble-worker.js?v=live-20261113'); job.workers.add(worker);
       worker.onerror = event => { event.preventDefault(); fail(event.message || 'Workerを起動できませんでした', worker); };
       worker.onmessage = event => {
         if (ensembleJob !== job) return;
@@ -88,10 +105,15 @@ ensembleUi.Start.addEventListener('click', () => {
         const result = message.result || message;
         row.children[2].textContent = String(result.iterations ?? result.iteration);
         row.children[3].textContent = String(result.unsatisfied);
-        if (message.type !== 'done') return;
+        if (message.type !== 'done') {
+          job.histories[index].push(message.posterior);
+          drawEnsembleHistories(job);
+          return;
+        }
+        job.histories[index] = result.history;
         row.children[1].textContent = result.converged ? 'シンドローム一致' : '最大反復に到達';
         delete row.dataset.pending; job.finished++; if (result.converged) job.converged++;
-        details.append(ensembleChart(result.history));
+        drawEnsembleHistories(job);
         const exportButton = document.createElement('button'); exportButton.type = 'button'; exportButton.textContent = 'このBPのJSONを保存';
         exportButton.addEventListener('click', () => {
           const url = URL.createObjectURL(new Blob([JSON.stringify({format:'bp-random-ensemble',version:1,graph,prior,damping,algorithm,maxIterations,...result})],{type:'application/json'}));
@@ -99,9 +121,10 @@ ensembleUi.Start.addEventListener('click', () => {
         }); details.append(exportButton);
         worker.terminate(); job.workers.delete(worker); finishEnsemble(job);
       };
-      worker.postMessage({graph,prior,damping,algorithm,order,maxIterations});
+      worker.postMessage({graph,prior,damping,algorithm,order,maxIterations,delay:currentUpdateDelay()});
     } catch (error) { fail(error.message, worker); }
   });
+  drawEnsembleHistories(job);
   job.launching = false;
   finishEnsemble(job);
 });
