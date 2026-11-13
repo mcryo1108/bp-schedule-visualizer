@@ -6,6 +6,7 @@
     <title>BPの計算をたどる</title>
     <link rel="stylesheet" href="styles.css?v=large-20261025" /><link rel="stylesheet" href="trace.css?v=layout-20261029" />
   <link rel="stylesheet" href="metrics.css?v=20261112" />
+    <link rel="stylesheet" href="ensemble.css?v=20261113" />
   </head>
   <body>
     <main class="app">
@@ -40,6 +41,13 @@
           <input id="llrCursor" type="range" min="0" max="0" value="0" step="1" style="width:100%">
           <output id="llrValue" style="display:block;font-variant-numeric:tabular-nums;overflow-wrap:anywhere"></output>
           <p style="font-size:13px;color:#637083;margin-bottom:0">図のビットをShift＋クリックしても選択できます。グラフ・CSVは初期状態からの事後LLRを記録します。リセット・誤り変更・符号変更で履歴は新しくなります。CSVの数値は表示用に丸めません。</p>
+        </section>
+
+        <section id="ensembleResults" aria-label="ランダムBPの並列結果" hidden>
+          <h2>ランダムBPの並列結果</h2>
+          <p id="ensembleSummary"></p>
+          <p>シンドローム一致は論理訂正の成功を保証しません。各BPは別Workerで実行し、実際のCPU同時実行数は端末に依存します。各BPのLLR履歴は保存しますが、単体Runの全メッセージ計算記録は保存しません。</p>
+          <div class="ensembleTableWrap"><table><thead><tr><th>BP</th><th>状態</th><th>反復数</th><th>未充足数</th><th>詳細</th></tr></thead><tbody id="ensembleRows"></tbody></table></div>
         </section>
 
         <section class="tracePanel" aria-label="全ノードの計算記録" tabindex="0">
@@ -99,6 +107,19 @@
             <span>実際の更新順序</span>
             <output id="serialOrderValue">v0 → v1 → ...</output>
             <button id="reshuffleOrderButton" type="button" hidden>ランダム順序を再生成</button>
+          </div>
+          <div id="ensembleSettings" hidden>
+            <div class="ensembleInputs">
+              <label>並列数<input id="ensembleCount" type="number" min="1" max="32" step="1" value="4" /></label>
+              <label>最大反復数<input id="ensembleIterations" type="number" min="1" max="500" step="1" value="50" /></label>
+            </div>
+            <div class="buttonGrid">
+              <button id="ensembleStart" type="button">ランダムBPを並列Run</button>
+              <button id="ensembleStop" type="button" disabled>並列実行を停止</button>
+            </div>
+            <p class="controlNote">開始時の符号・誤り・p・dampingを全BPで共有し、それぞれ異なる固定ランダム順序で初期状態から実行します。1反復＝全変数の1スイープです。</p>
+            <div id="ensembleStatus" role="status"></div>
+            <a href="#ensembleResults">並列結果を見る</a>
           </div>
         </div>
 
@@ -232,5 +253,6 @@
 
     <script src="trace.js?v=algorithm-20261025"></script><script src="app.js?v=serial-display-20261113"></script>
   <script src="metrics.js?v=20261112"></script>
+    <script src="ensemble.js?v=20261113"></script>
   </body>
 </html>

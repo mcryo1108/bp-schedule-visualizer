@@ -1,0 +1,16 @@
+#ensembleSettings { display:grid; gap:10px; }
+#ensembleSettings[hidden], #ensembleResults[hidden] { display:none; }
+.ensembleInputs { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.ensembleInputs label { display:grid; gap:6px; font-size:13px; font-weight:700; }
+.ensembleInputs input { width:100%; min-width:0; padding:8px; border:1px solid var(--line); border-radius:6px; }
+#ensembleStatus { font-size:13px; color:var(--muted); overflow-wrap:anywhere; }
+#ensembleResults { margin:12px; padding:16px; border:1px solid var(--line); border-radius:8px; }
+#ensembleResults h2 { margin:0 0 8px; font-size:18px; }
+#ensembleResults p { font-size:13px; line-height:1.5; }
+.ensembleTableWrap { overflow-x:auto; }
+#ensembleResults table { width:100%; border-collapse:collapse; font-size:13px; }
+#ensembleResults th, #ensembleResults td { padding:10px 8px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top; }
+#ensembleResults details { min-width:150px; max-width:640px; }
+#ensembleResults summary { cursor:pointer; }
+#ensembleResults canvas { width:100%; height:auto; display:block; min-width:180px; }
+.ensembleOrder { overflow-wrap:anywhere; max-width:600px; }
