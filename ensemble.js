@@ -20,18 +20,23 @@ function uniqueRandomOrders(n, count) {
   return orders;
 }
 function ensembleChart(history, bound, maxIterations) {
-  const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 160;
-  canvas.setAttribute('aria-label', 'このBPの全ビットLLR履歴');
-  const context = canvas.getContext('2d');
-
-  context.fillStyle = '#ffffff'; context.fillRect(0, 0, 640, 160);
-  context.strokeStyle = '#d6dde7'; context.beginPath(); context.moveTo(35, 75); context.lineTo(630, 75); context.stroke();
-  context.fillStyle = '#637083'; context.font = '12px sans-serif'; context.fillText(bound.toFixed(1), 0, 16); context.fillText((-bound).toFixed(1), 0, 142); context.fillText('0', 35, 157); context.fillText(`sweep 0–${maxIterations}`, 540, 157);
-  for (let bit = 0; bit < history[0].length; bit++) {
-    context.strokeStyle = `hsla(${bit * 137.5 % 360},65%,42%,.65)`; context.lineWidth = 1; context.beginPath();
-    history.forEach((row, i) => { const x = 35 + i / Math.max(1, maxIterations) * 595, y = 75 - row[bit] / bound * 65; if (i) context.lineTo(x,y); else context.moveTo(x,y); }); context.stroke();
+  const ns='http://www.w3.org/2000/svg';
+  const svg=document.createElementNS(ns,'svg'); svg.setAttribute('viewBox','0 0 640 200'); svg.setAttribute('role','img'); svg.setAttribute('aria-label','全ビットのLLR履歴');
+  function element(tag,attrs,text) { const node=document.createElementNS(ns,tag); for(const [key,value] of Object.entries(attrs))node.setAttribute(key,String(value));if(text!==undefined)node.textContent=text;svg.append(node);return node; }
+  element('rect',{width:640,height:200,fill:'#fff'});
+  for(const f of [-1,-.5,0,.5,1]) {
+    const y=90-f*70;
+    element('line',{x1:48,y1:y,x2:625,y2:y,stroke:f===0?'#8995a5':'#e5eaf0','stroke-width':1});
+    element('text',{x:42,y:y+4,'text-anchor':'end','font-size':12,fill:'#536176'},(f*bound).toFixed(1));
   }
-  return canvas;
+  element('text',{x:48,y:185,'font-size':12,fill:'#536176'},'0');
+  element('text',{x:625,y:185,'text-anchor':'end','font-size':12,fill:'#536176'},String(maxIterations));
+  element('text',{x:330,y:198,'text-anchor':'middle','font-size':12,fill:'#536176'},`sweep（現在 ${history.length-1}）`);
+  for(let bit=0;bit<history[0].length;bit++) {
+    const points=history.map((row,i)=>`${48+i/Math.max(1,maxIterations)*577},${90-row[bit]/bound*70}`).join(' ');
+    element('polyline',{points,fill:'none',stroke:`hsl(${bit*137.5%360},65%,38%)`,'stroke-width':1.4,'stroke-linejoin':'round'});
+  }
+  return svg;
 }
 function drawEnsembleHistories(job) {
   let bound = 1;
@@ -41,7 +46,10 @@ function drawEnsembleHistories(job) {
 ui.runButton.addEventListener('click', event => {
   if (currentSchedule() !== 'serial' || currentSerialOrderMode() !== 'random') return;
   event.stopImmediatePropagation();
-  if (ensembleJob) stopEnsemble(); else ensembleUi.Start.click();
+  if (ensembleJob?.manual) {
+    ensembleJob.manual=false; ui.runButton.textContent='Pause';
+    for(const worker of ensembleJob.workers) worker.postMessage({type:'resume'});
+  } else if (ensembleJob) stopEnsemble(); else ensembleUi.Start.click();
 }, true);
 function finishEnsemble(job) {
   if (ensembleJob !== job || job.workers.size || job.launching) return;
@@ -58,7 +66,16 @@ function stopEnsemble() {
   finishEnsemble(job); ensembleUi.Status.textContent = `中止 · 完了 ${job.finished}/${job.count}本`; ensembleUi.Summary.textContent = `${job.description} · ${ensembleUi.Status.textContent}`;
 }
 ensembleUi.Stop.addEventListener('click', stopEnsemble);
-ensembleUi.Start.addEventListener('click', () => {
+ensembleUi.Start.addEventListener('click', () => startEnsemble(false));
+ui.stepButton.addEventListener('click', event => {
+  if(currentSchedule()!=='serial'||currentSerialOrderMode()!=='random') return;
+  event.stopImmediatePropagation();
+  if(!ensembleJob) startEnsemble(true);
+  else if(ensembleJob.manual && ensembleJob.pending.size===0) {
+    for(const worker of ensembleJob.workers) { ensembleJob.pending.add(worker); worker.postMessage({type:'step'}); }
+  }
+},true);
+function startEnsemble(manual) {
   if (ensembleJob) return;
   const count = Number(ensembleUi.Count.value), maxIterations = Number(ensembleUi.Iterations.value);
   if (!Number.isInteger(count) || count < 1 || count > 32 || !Number.isInteger(maxIterations) || maxIterations < 1 || maxIterations > 500) {
@@ -70,10 +87,10 @@ ensembleUi.Start.addEventListener('click', () => {
   const prior = Math.log((1-Number(ui.errorRate.value)/100)/(Number(ui.errorRate.value)/100));
   let orders;
   try { orders = uniqueRandomOrders(graph.variables.length, count); } catch (error) { ensembleUi.Status.textContent = error.message; return; }
-  const job = {count, finished:0, converged:0, workers:new Set(), rows:[], started:performance.now(), launching:true, histories:orders.map(()=>[new Array(graph.variables.length).fill(prior)]), chartSlots:[], maxIterations}; ensembleJob = job;
+  const job = {count, finished:0, converged:0, workers:new Set(), rows:[], started:performance.now(), launching:true, manual, pending:new Set(), histories:orders.map(()=>[new Array(graph.variables.length).fill(prior)]), chartSlots:[], maxIterations}; ensembleJob = job;
   ensembleUi.Charts.replaceChildren();
   ensembleUi.Rows.replaceChildren(); ensembleUi.Results.hidden = false;
-  ui.runButton.textContent = "Pause";
+  ui.runButton.textContent = manual ? "Run" : "Pause";
   ensembleUi.Start.disabled = true; ensembleUi.Stop.disabled = false;
   ensembleUi.Status.textContent = `${count}本を並列実行中`;
   ensembleUi.Summary.textContent = `${graph.label || graph.type} · n=${graph.variables.length} · ${algorithm} · p=${ui.errorRate.value/100} · damping=${damping} · 最大${maxIterations} sweep · 真の誤り: ${graph.variables.filter(v=>v.error).map(v=>`v${v.id}`).join(', ') || 'なし'}（開始時の条件を固定）`;
@@ -96,12 +113,13 @@ ensembleUi.Start.addEventListener('click', () => {
     }
     let worker;
     try {
-      worker = new Worker('ensemble-worker.js?v=live-20261113'); job.workers.add(worker);
+      worker = new Worker('ensemble-worker.js?v=step-20261113'); job.workers.add(worker); job.pending.add(worker);
       worker.onerror = event => { event.preventDefault(); fail(event.message || 'Workerを起動できませんでした', worker); };
       worker.onmessage = event => {
         if (ensembleJob !== job) return;
         const message = event.data;
         if (message.type === 'error') { fail(message.message, worker); return; }
+        job.pending.delete(worker);
         const result = message.result || message;
         row.children[2].textContent = String(result.iterations ?? result.iteration);
         row.children[3].textContent = String(result.unsatisfied);
@@ -121,11 +139,11 @@ ensembleUi.Start.addEventListener('click', () => {
         }); details.append(exportButton);
         worker.terminate(); job.workers.delete(worker); finishEnsemble(job);
       };
-      worker.postMessage({graph,prior,damping,algorithm,order,maxIterations,delay:currentUpdateDelay()});
+      worker.postMessage({graph,prior,damping,algorithm,order,maxIterations,manual,delay:currentUpdateDelay()});
     } catch (error) { fail(error.message, worker); }
   });
   drawEnsembleHistories(job);
   job.launching = false;
   finishEnsemble(job);
-});
+}
 window.addEventListener('pagehide', stopEnsemble);

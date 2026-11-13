@@ -52,16 +52,21 @@ function runSerialBP(input, progress = () => {}) {
   do { next = steps.next(); if (!next.done) progress(next.value); } while (!next.done);
   return next.value;
 }
-self.onmessage = async event => {
+let workerSteps=null, workerInput=null, workerTimer=null;
+function advanceWorker() {
+  if(!workerSteps) return;
   try {
-    const steps = serialBPSteps(event.data); let next;
-    do {
-      next = steps.next();
-      if (!next.done) {
-        self.postMessage({type:'progress', ...next.value});
-        await new Promise(resolve => setTimeout(resolve, Math.max(16, event.data.delay || 20)));
-      }
-    } while (!next.done);
-    self.postMessage({type:'done', result:next.value});
-  } catch (error) { self.postMessage({type:'error',message:error.message}); }
+    const next=workerSteps.next();
+    if(next.done) { self.postMessage({type:'done',result:next.value}); workerSteps=null; return; }
+    self.postMessage({type:'progress',...next.value});
+    if(next.value.iteration>=workerInput.maxIterations || next.value.unsatisfied===0) {
+      const end=workerSteps.next(); self.postMessage({type:'done',result:end.value}); workerSteps=null; return;
+    }
+    if(!workerInput.manual) workerTimer=setTimeout(advanceWorker,Math.max(16,workerInput.delay||20));
+  } catch(error) { workerSteps=null; self.postMessage({type:'error',message:error.message}); }
+}
+self.onmessage = event => {
+  if(event.data.type==='step') { if(workerInput?.manual) advanceWorker(); return; }
+  if(event.data.type==='resume') { if(workerInput?.manual) { workerInput.manual=false; advanceWorker(); } return; }
+  clearTimeout(workerTimer); workerInput=event.data; workerSteps=serialBPSteps(workerInput); advanceWorker();
 };
