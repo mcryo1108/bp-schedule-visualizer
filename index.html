@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="metrics.css?v=20261112" />
     <link rel="stylesheet" href="ensemble.css?v=continue-20261113" />
   <link rel="stylesheet" href="llr-values.css?v=20261113" />
+    <link rel="stylesheet" href="overview.css?v=20261113" />
   </head>
   <body>
     <main class="app">
@@ -26,12 +27,34 @@
           </div>
         </header>
 
+        <div class="overview">
         <div class="canvasShell">
           <canvas id="bpCanvas" width="1100" height="820"></canvas>
           <button id="copyImageButton" class="copyImageButton" type="button">図とLLRをコピー</button>
         </div>
 
+        <section id="ensembleResults" aria-label="ランダムBPの並列結果" hidden>
+          <h2>ランダムBPの並列結果</h2>
+          <p id="ensembleSummary"></p>
+          <p>BP stepで全BPを1スイープずつ更新できます。Runで自動更新します。各BPのLLR履歴を同時表示します。横軸・縦軸とビットの色は全グラフで共通です。</p>
+          <label><input id="ensembleEarlyStop" type="checkbox" /> シンドローム一致で早期終了する（次の実行から適用）</label>
+          <div class="ensembleHistoryControls">
+            <button id="ensembleSaveAll" type="button">全BPのLLR履歴を保存</button>
+            <button id="ensembleHistoryRun" type="button">Run / 再開</button>
+            <button id="ensembleHistoryStop" type="button">Stop / 一時停止</button>
+            <button id="ensembleHistoryStep" type="button">BP step</button>
+            <label>強調するビット <select id="ensembleFocusBit"><option value="">全ビット</option></select></label>
+          </div>
+          <div id="ensembleCharts" class="ensembleHistoryGrid"></div>
+          <p>シンドローム一致は論理訂正の成功を保証しません。各BPは別Workerで実行し、実際のCPU同時実行数は端末に依存します。各BPのLLR履歴は保存しますが、単体Runの全メッセージ計算記録は保存しません。</p>
+          <details class="ensembleExtra"><summary>各BPの実行結果・更新順序・保存</summary><div class="ensembleTableWrap"><table><thead><tr><th>BP</th><th>状態</th><th>反復数</th><th>未充足数</th><th>詳細</th></tr></thead><tbody id="ensembleRows"></tbody></table></div></details>
+        </section>
+
+        </div>
+
         <section class="traceTracking" aria-label="LLR追跡" style="padding:12px;border:1px solid #d6dde7;border-radius:8px;background:#fff">
+          <details><summary>LLR数値・追跡ビット・CSVを表示</summary>
+
           <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
             <label for="llrBit">追跡ビット</label>
             <select id="llrBit" aria-label="追跡ビット"><option value="">全ビット</option></select>
@@ -49,26 +72,12 @@
             </table>
           </div>
           <p style="font-size:13px;color:#637083;margin-bottom:0">図のビットをShift＋クリックしても選択できます。グラフ・CSVは初期状態からの事後LLRを記録します。リセット・誤り変更・符号変更で履歴は新しくなります。CSVの数値は表示用に丸めません。</p>
-        </section>
-
-        <section id="ensembleResults" aria-label="ランダムBPの並列結果" hidden>
-          <h2>ランダムBPの並列結果</h2>
-          <p id="ensembleSummary"></p>
-          <p>BP stepで全BPを1スイープずつ更新できます。Runで自動更新します。各BPのLLR履歴を同時表示します。横軸・縦軸とビットの色は全グラフで共通です。</p>
-          <label><input id="ensembleEarlyStop" type="checkbox" /> シンドローム一致で早期終了する（次の実行から適用）</label>
-          <div class="ensembleHistoryControls">
-            <button id="ensembleSaveAll" type="button">全BPのLLR履歴を保存</button>
-            <button id="ensembleHistoryRun" type="button">Run / 再開</button>
-            <button id="ensembleHistoryStop" type="button">Stop / 一時停止</button>
-            <button id="ensembleHistoryStep" type="button">BP step</button>
-            <label>強調するビット <select id="ensembleFocusBit"><option value="">全ビット</option></select></label>
-          </div>
-          <div id="ensembleCharts" class="ensembleHistoryGrid"></div>
-          <p>シンドローム一致は論理訂正の成功を保証しません。各BPは別Workerで実行し、実際のCPU同時実行数は端末に依存します。各BPのLLR履歴は保存しますが、単体Runの全メッセージ計算記録は保存しません。</p>
-          <div class="ensembleTableWrap"><table><thead><tr><th>BP</th><th>状態</th><th>反復数</th><th>未充足数</th><th>詳細</th></tr></thead><tbody id="ensembleRows"></tbody></table></div>
-        </section>
+                  </details>
+</section>
 
         <section class="tracePanel" aria-label="全ノードの計算記録" tabindex="0">
+          <details><summary>全ノードの計算記録を表示</summary>
+
           <div class="traceHeading"><div><h2>全ノードの計算記録</h2><p id="tracePrior"></p></div><span id="traceCount"></span></div>
           <div class="traceToolbar">
             <label>調べるノード <select id="traceNode" aria-label="調べるノード"></select></label>
@@ -81,7 +90,8 @@
           <p class="traceHelp">ノードを選ぶと、LLRヒストリーもそのビットに絞られます。「LLRを全ビット表示に戻す」で絞り込みだけ解除できます。計算記録は消えません。ノードをShift＋クリックすると選択できます。数値の参照先を押すと、その値を作った更新へ遡ります。記録は計算上の依存関係を示します。</p>
           <div id="traceImportStatus" role="status"></div>
           <div class="traceColumns"><div id="traceSnapshot"></div><div id="traceDetail"></div></div>
-        </section>
+                  </details>
+</section>
       </section>
 
       <aside class="panel" aria-label="controls">
@@ -269,7 +279,7 @@
       </aside>
     </main>
 
-    <script src="trace.js?v=algorithm-20261025"></script><script src="app.js?v=llr-values-20261113"></script>
+    <script src="trace.js?v=algorithm-20261025"></script><script src="app.js?v=overview-20261113"></script>
   <script src="metrics.js?v=20261112"></script>
     <script src="ensemble.js?v=continue-20261113"></script>
   </body>

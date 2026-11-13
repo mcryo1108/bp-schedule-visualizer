@@ -687,19 +687,19 @@ function computeLayout() {
     : code.type === "color"
       ? Math.max(900, (Math.max(...code.variables.map(node => node.raw.x)) - Math.min(...code.variables.map(node => node.raw.x))) * 100 + 160)
       : code.type === "surface" ? Math.max(900, (code.size - 1) * 100 + 160) : Math.max(1000, code.variables.length * 44 + 180);
-  canvas.style.width = `${Math.max(minWidth, canvas.parentElement.clientWidth - 24)}px`;
-  canvas.style.height = `${graphPixels + 280}px`;
+  canvas.style.width = `${Math.max(300, canvas.parentElement.clientWidth - 16)}px`;
+  canvas.style.height = `${Math.max(440, Math.min(700, window.innerHeight - 150))}px`;
   const rect = canvas.getBoundingClientRect();
   const ratio = window.devicePixelRatio || 1;
-  canvas.width = Math.max(900, Math.round(rect.width * ratio));
-  canvas.height = Math.max(620, Math.round(rect.height * ratio));
+  canvas.width = Math.max(1, Math.round(rect.width * ratio));
+  canvas.height = Math.max(1, Math.round(rect.height * ratio));
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 
   const width = canvas.width / ratio;
   const height = canvas.height / ratio;
   const chartHeight = clamp(height * 0.28, 170, 230);
   const graphHeight = height - chartHeight - 20;
-  const margin = Math.min(width, graphHeight) < 680 ? 54 : 76;
+  const margin = Math.min(width, graphHeight) < 680 ? 30 : 50;
   const usable = Math.min(width - margin * 2, graphHeight - margin * 2);
   const colorXs = code.type === "color" ? [...code.variables, ...code.checks].map((node) => node.raw.x) : [0];
   const colorYs = code.type === "color" ? [...code.variables, ...code.checks].map((node) => node.raw.y) : [0];
