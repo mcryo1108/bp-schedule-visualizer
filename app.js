@@ -987,7 +987,7 @@ function drawVariables() {
     const p = pointForVariable(variable);
     const llr = bp.posterior[variable.id];
     const isHovered = hoveredVariable && hoveredVariable.id === variable.id;
-    const isActiveSerial = bp.active === "serial" && (bp.activeVariableId === null || bp.activeVariableId === variable.id);
+    const isActiveSerial = bp.active === "serial" && bp.activeVariableId === variable.id;
 
     if (code.type === "bb144") {
       ctx.fillStyle = logisticColor(llr);
@@ -1170,6 +1170,8 @@ function drawNodes() {
 
 function drawMessagePulse() {
   if (!bp.active) return;
+  // A completed serial sweep has no individual node or message in flight.
+  if (bp.active === "serial" && bp.activeVariableId === null) return;
   const alpha = bp.active === "checks" ? 0.18 : bp.active === "serial" ? 0.28 : 0.12;
   ctx.strokeStyle = bp.active === "checks" ? `rgba(29, 154, 122, ${alpha})` : `rgba(224, 168, 46, ${alpha})`;
   ctx.lineWidth = code.type !== "surface" ? 4 : bp.active === "checks" ? 20 : 16;
@@ -1177,7 +1179,7 @@ function drawMessagePulse() {
   for (const check of code.checks) {
     const c = pointForCheck(check);
     for (const variable of check.variables) {
-      if (bp.active === "serial" && bp.activeVariableId !== null && variable.id !== bp.activeVariableId) continue;
+      if (bp.active === "serial" && variable.id !== bp.activeVariableId) continue;
       const p = pointForVariable(variable);
       const target = code.type === "bb144" ? nearestPeriodicCheckPoint(check, p) : c;
       ctx.beginPath();
