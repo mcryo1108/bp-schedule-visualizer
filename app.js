@@ -1436,8 +1436,28 @@ function updateLlrControls() {
   const id = llrUi.bit.value;
   llrUi.selected.disabled = id === "";
   llrUi.value.textContent = `step ${meta.step} / iteration ${meta.iteration} · ${meta.phase} · 未充足 ${meta.unsatisfied}` +
-    (id === "" ? " · ビットを選ぶと数値を表示" : ` · v${id}: LLR = ${bp.history[index][Number(id)]} · 硬判定 ${bp.history[index][Number(id)] < 0 ? 1 : 0}`);
+    (id === "" ? " · 全ビットのLLRを下に表示" : ` · v${id}: LLR = ${bp.history[index][Number(id)]} · 硬判定 ${bp.history[index][Number(id)] < 0 ? 1 : 0}`);
   llrUi.selected.textContent = id === "" ? "選択ビットのCSV" : `v${id}のCSV`;
+  updateLlrValueTable(bp.history[index], meta.step, id);
+}
+
+let llrValueTableCache = null;
+function updateLlrValueTable(values, step, selectedId) {
+  const body = document.getElementById("llrValueRows");
+  if (!body) return;
+  if (llrValueTableCache?.values === values && llrValueTableCache.selectedId === selectedId && llrValueTableCache.step === step) return;
+  llrValueTableCache = {values, selectedId, step};
+  document.getElementById("llrValueCaption").textContent = `step ${step} の事後LLR`;
+  const rows = document.createDocumentFragment();
+  for (const variable of code.variables) {
+    if (selectedId !== "" && variable.id !== Number(selectedId)) continue;
+    const row = document.createElement("tr");
+    for (const text of [`v${variable.id}`, String(values[variable.id]), values[variable.id] < 0 ? "1" : "0"]) {
+      const cell = document.createElement("td"); cell.textContent = text; row.append(cell);
+    }
+    rows.append(row);
+  }
+  body.replaceChildren(rows);
 }
 
 function llrCsv(selectedOnly) {

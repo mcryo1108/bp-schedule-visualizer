@@ -1,0 +1,7 @@
+.llrValuesWrap { margin-top:12px; max-height:300px; overflow:auto; border:1px solid var(--line); border-radius:6px; }
+.llrValuesTable { width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums; }
+.llrValuesTable caption { padding:10px; text-align:left; font-weight:700; background:var(--panel); }
+.llrValuesTable th { position:sticky; top:0; background:var(--panel); }
+.llrValuesTable th,.llrValuesTable td { padding:7px 12px; text-align:left; border-bottom:1px solid var(--line); }
+.llrValuesTable td:nth-child(2) { font-family:ui-monospace,monospace; overflow-wrap:anywhere; }
+.llrValuesTable tbody tr:last-child td { border-bottom:0; }

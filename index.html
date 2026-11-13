@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="styles.css?v=large-20261025" /><link rel="stylesheet" href="trace.css?v=layout-20261029" />
   <link rel="stylesheet" href="metrics.css?v=20261112" />
     <link rel="stylesheet" href="ensemble.css?v=20261113" />
+  <link rel="stylesheet" href="llr-values.css?v=20261113" />
   </head>
   <body>
     <main class="app">
@@ -40,6 +41,13 @@
           <label for="llrCursor" style="display:block;margin-top:12px">数値を見るステップ</label>
           <input id="llrCursor" type="range" min="0" max="0" value="0" step="1" style="width:100%">
           <output id="llrValue" style="display:block;font-variant-numeric:tabular-nums;overflow-wrap:anywhere"></output>
+          <div class="llrValuesWrap" tabindex="0" aria-label="選択stepのLLR値一覧">
+            <table class="llrValuesTable">
+              <caption id="llrValueCaption">step 0 の事後LLR</caption>
+              <thead><tr><th scope="col">量子ビット / 変数</th><th scope="col">LLR</th><th scope="col">ハード判定</th></tr></thead>
+              <tbody id="llrValueRows"></tbody>
+            </table>
+          </div>
           <p style="font-size:13px;color:#637083;margin-bottom:0">図のビットをShift＋クリックしても選択できます。グラフ・CSVは初期状態からの事後LLRを記録します。リセット・誤り変更・符号変更で履歴は新しくなります。CSVの数値は表示用に丸めません。</p>
         </section>
 
@@ -251,7 +259,7 @@
       </aside>
     </main>
 
-    <script src="trace.js?v=algorithm-20261025"></script><script src="app.js?v=serial-display-20261113"></script>
+    <script src="trace.js?v=algorithm-20261025"></script><script src="app.js?v=llr-values-20261113"></script>
   <script src="metrics.js?v=20261112"></script>
     <script src="ensemble.js?v=20261113"></script>
   </body>
