@@ -1,7 +1,7 @@
 .overview { display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr); gap:8px; align-items:start; padding:8px; }
 .overview .canvasShell { min-width:0; margin:0; padding:0; overflow:hidden; }
 .overview canvas { min-height:0; max-width:100%; }
-.overview #ensembleResults { min-width:0; margin:0; padding:10px; max-height:calc(100vh - 150px); overflow:auto; }
+.overview #ensembleResults { min-width:0; margin:0; padding:10px; max-height:none; overflow:visible; }
 .overview #ensembleResults[hidden] { display:block; }
 .overview #ensembleResults[hidden] > :not(h2) { display:none; }
 .overview #ensembleResults[hidden]::after { content:'右側でシリアル・ランダムを選び、BP step または Run を押すと、ここに並列LLR履歴を表示します。'; display:block; font-size:13px; line-height:1.7; color:#637083; }
@@ -14,7 +14,11 @@
 .overview .ensembleHistoryCard h3 { font-size:12px; }
 .overview #ensembleCharts svg { min-height:105px; }
 .overview .ensembleFocusValue { font-size:11px; min-height:1.5em; }
-.workspace .tracePanel { height:auto; max-height:none; min-height:0; resize:none; padding:10px 14px; }
+.workspace .tracePanel { height:auto; max-height:none; min-height:0; resize:none; overflow:visible; overscroll-behavior:auto; scrollbar-gutter:auto; padding:10px 14px; }
 .traceTracking > details > summary,.tracePanel > details > summary { cursor:pointer; font-size:13px; font-weight:700; padding:3px; }
 .ensembleExtra { font-size:12px; margin-top:10px; }
 @media(max-width:800px){.overview{grid-template-columns:minmax(0,1fr)}.overview #ensembleResults{max-height:none}.overview .ensembleHistoryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Expanded records participate in the document scroll, without nested vertical panes. */
+.workspace .llrValuesWrap { max-height:none; overflow:visible; }
+.workspace .ensembleTableWrap { max-height:none; overflow:visible; }
