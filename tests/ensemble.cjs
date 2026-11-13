@@ -23,6 +23,13 @@ for(const generator of ['createColorCode(3,0)','createColorCode(5,0)','createCol
   expected.push(Array.from(vm.runInContext('bp.posterior',engine)));
  }
  assert.deepStrictEqual(JSON.parse(JSON.stringify(result.history)),expected,`${generator} ${algorithm} ${damp}`);
+ for(const event of result.trace.events){
+  for(const ref of event.inputs)assert(ref<event.id && ref>=0,'input reference precedes update');
+  if(event.previousRef!==undefined){assert(event.previousRef<event.id);assert.strictEqual(result.trace.events[event.previousRef].value,event.previous);assert.strictEqual(event.value,event.previous*event.damping+event.raw*(1-event.damping));}
+  if(event.kind==='posterior'||event.kind==='v2c')assert.strictEqual(event.kind==='posterior'?event.value:event.raw,event.inputs.reduce((sum,ref)=>sum+result.trace.events[ref].value,0));
+ }
+ assert.strictEqual(result.trace.frames.length,result.history.length);
+ result.trace.frames.forEach((f,i)=>f.p.forEach((id,bit)=>assert.strictEqual(result.trace.events[id].value,result.history[i][bit])));
  const g=payload.graph;
  const unsat=g.checks.filter(c=>c.variables.reduce((s,id)=>s^Number(result.posterior[id]<0),0)!==c.syndrome).length;
  assert.strictEqual(result.unsatisfied,unsat); cases++;

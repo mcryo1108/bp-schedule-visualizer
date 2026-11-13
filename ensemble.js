@@ -121,7 +121,7 @@ function startEnsemble(manual) {
   const prior = Math.log((1-Number(ui.errorRate.value)/100)/(Number(ui.errorRate.value)/100));
   let orders;
   try { orders = uniqueRandomOrders(graph.variables.length, count); } catch (error) { ensembleUi.Status.textContent = error.message; return; }
-  const job = {count, finished:0, converged:0, workers:new Set(), rows:[], started:performance.now(), launching:true, manual, pending:new Set(), histories:orders.map(()=>[new Array(graph.variables.length).fill(prior)]), chartSlots:[], maxIterations, graph, prior, damping, algorithm, orders}; ensembleJob = job; ensembleLastJob=job;
+  const job = {count, finished:0, converged:0, workers:new Set(), rows:[], started:performance.now(), launching:true, manual, pending:new Set(), histories:orders.map(()=>[new Array(graph.variables.length).fill(prior)]), chartSlots:[], traces:orders.map(()=>({events:[],frames:[]})), maxIterations, graph, prior, damping, algorithm, orders}; ensembleJob = job; ensembleLastJob=job;
   ensembleBitSelect.replaceChildren(new Option("全ビット", ""),...graph.variables.map(v=>new Option(`v${v.id}`,String(v.id)))); ensembleFocus=null;
   ensembleUi.Charts.replaceChildren();
   ensembleUi.Rows.replaceChildren(); ensembleUi.Results.hidden = false;
@@ -130,6 +130,7 @@ function startEnsemble(manual) {
   ensembleUi.Status.textContent = `${count}本を並列実行中`;
   ensembleUi.Summary.textContent = `${graph.label || graph.type} · n=${graph.variables.length} · ${algorithm} · p=${ui.errorRate.value/100} · damping=${damping} · 最大${maxIterations} sweep · 真の誤り: ${graph.variables.filter(v=>v.error).map(v=>`v${v.id}`).join(', ') || 'なし'}（開始時の条件を固定）`;
   job.description = ensembleUi.Summary.textContent;
+  window.dispatchEvent(new Event("ensemble-record-start"));
   orders.forEach((order, index) => {
     const card = document.createElement('section'); card.className='ensembleHistoryCard';
     const heading = document.createElement('h3'); heading.textContent=`BP ${index+1} · LLR history`;
@@ -148,13 +149,18 @@ function startEnsemble(manual) {
     }
     let worker;
     try {
-      worker = new Worker('ensemble-worker.js?v=continue-20261113'); job.workers.add(worker); job.pending.add(worker);
+      worker = new Worker('ensemble-worker.js?v=records-20261113'); job.workers.add(worker); job.pending.add(worker);
       worker.onerror = event => { event.preventDefault(); fail(event.message || 'Workerを起動できませんでした', worker); };
       worker.onmessage = event => {
         if (ensembleJob !== job) return;
         const message = event.data;
         if (message.type === 'paused') return;
         if (message.type === 'error') { fail(message.message, worker); return; }
+        if(message.traceDelta) {
+          const trace=job.traces[index];
+          for(const e of message.traceDelta.events) trace.events.push(e);
+          for(const f of message.traceDelta.frames) trace.frames.push(f);
+        }
         job.pending.delete(worker);
         const result = message.result || message;
         row.children[2].textContent = String(result.iterations ?? result.iteration);
@@ -170,7 +176,7 @@ function startEnsemble(manual) {
         drawEnsembleHistories(job);
         const exportButton = document.createElement('button'); exportButton.type = 'button'; exportButton.textContent = 'このBPのJSONを保存';
         exportButton.addEventListener('click', () => {
-          const url = URL.createObjectURL(new Blob([JSON.stringify({format:'bp-random-ensemble',version:1,graph,prior,damping,algorithm,maxIterations,...result})],{type:'application/json'}));
+          const url = URL.createObjectURL(new Blob([JSON.stringify({format:'bp-random-ensemble',version:1,graph,prior,damping,algorithm,maxIterations,...result,trace:job.traces[index]})],{type:'application/json'}));
           const link = document.createElement('a'); link.href = url; link.download = `random-bp-${index+1}.json`; link.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
         }); details.append(exportButton);
         worker.terminate(); job.workers.delete(worker); finishEnsemble(job);
@@ -186,6 +192,6 @@ window.addEventListener('pagehide', cancelEnsemble);
 
 document.getElementById('ensembleSaveAll').addEventListener('click',()=>{
   const job=ensembleJob||ensembleLastJob; if(!job) return;
-  const payload={format:'bp-ensemble-llr-histories',version:1,graph:job.graph,prior:job.prior,damping:job.damping,algorithm:job.algorithm,maxIterations:job.maxIterations,runs:job.histories.map((history,i)=>({id:i+1,order:job.orders[i],history,iterations:history.length-1}))};
+  const payload={format:'bp-ensemble-full-trace',version:2,graph:job.graph,prior:job.prior,damping:job.damping,algorithm:job.algorithm,maxIterations:job.maxIterations,runs:job.histories.map((history,i)=>({id:i+1,order:job.orders[i],history,trace:job.traces[i],iterations:history.length-1}))};
   const url=URL.createObjectURL(new Blob([JSON.stringify(payload)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`bp-ensemble-histories-${Date.now()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
