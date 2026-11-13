@@ -59,7 +59,7 @@ function advanceWorker() {
     const next=workerSteps.next();
     if(next.done) { self.postMessage({type:'done',result:next.value}); workerSteps=null; return; }
     self.postMessage({type:'progress',...next.value});
-    if(next.value.iteration>=workerInput.maxIterations || next.value.unsatisfied===0) {
+    if(next.value.iteration>=workerInput.maxIterations || (workerInput.stopOnConvergence !== false && next.value.unsatisfied===0)) {
       const end=workerSteps.next(); self.postMessage({type:'done',result:end.value}); workerSteps=null; return;
     }
     if(!workerInput.manual) workerTimer=setTimeout(advanceWorker,Math.max(16,workerInput.delay||20));

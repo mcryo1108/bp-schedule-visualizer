@@ -6,7 +6,7 @@
     <title>BPの計算をたどる</title>
     <link rel="stylesheet" href="styles.css?v=large-20261025" /><link rel="stylesheet" href="trace.css?v=layout-20261029" />
   <link rel="stylesheet" href="metrics.css?v=20261112" />
-    <link rel="stylesheet" href="ensemble.css?v=focus-20261113" />
+    <link rel="stylesheet" href="ensemble.css?v=continue-20261113" />
   <link rel="stylesheet" href="llr-values.css?v=20261113" />
   </head>
   <body>
@@ -55,7 +55,9 @@
           <h2>ランダムBPの並列結果</h2>
           <p id="ensembleSummary"></p>
           <p>BP stepで全BPを1スイープずつ更新できます。Runで自動更新します。各BPのLLR履歴を同時表示します。横軸・縦軸とビットの色は全グラフで共通です。</p>
+          <label><input id="ensembleEarlyStop" type="checkbox" /> シンドローム一致で早期終了する（次の実行から適用）</label>
           <div class="ensembleHistoryControls">
+            <button id="ensembleSaveAll" type="button">全BPのLLR履歴を保存</button>
             <button id="ensembleHistoryRun" type="button">Run / 再開</button>
             <button id="ensembleHistoryStop" type="button">Stop / 一時停止</button>
             <button id="ensembleHistoryStep" type="button">BP step</button>
@@ -269,6 +271,6 @@
 
     <script src="trace.js?v=algorithm-20261025"></script><script src="app.js?v=llr-values-20261113"></script>
   <script src="metrics.js?v=20261112"></script>
-    <script src="ensemble.js?v=focus-20261113"></script>
+    <script src="ensemble.js?v=continue-20261113"></script>
   </body>
 </html>

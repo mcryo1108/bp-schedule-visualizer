@@ -121,7 +121,7 @@ function startEnsemble(manual) {
   const prior = Math.log((1-Number(ui.errorRate.value)/100)/(Number(ui.errorRate.value)/100));
   let orders;
   try { orders = uniqueRandomOrders(graph.variables.length, count); } catch (error) { ensembleUi.Status.textContent = error.message; return; }
-  const job = {count, finished:0, converged:0, workers:new Set(), rows:[], started:performance.now(), launching:true, manual, pending:new Set(), histories:orders.map(()=>[new Array(graph.variables.length).fill(prior)]), chartSlots:[], maxIterations}; ensembleJob = job; ensembleLastJob=job;
+  const job = {count, finished:0, converged:0, workers:new Set(), rows:[], started:performance.now(), launching:true, manual, pending:new Set(), histories:orders.map(()=>[new Array(graph.variables.length).fill(prior)]), chartSlots:[], maxIterations, graph, prior, damping, algorithm, orders}; ensembleJob = job; ensembleLastJob=job;
   ensembleBitSelect.replaceChildren(new Option("全ビット", ""),...graph.variables.map(v=>new Option(`v${v.id}`,String(v.id)))); ensembleFocus=null;
   ensembleUi.Charts.replaceChildren();
   ensembleUi.Rows.replaceChildren(); ensembleUi.Results.hidden = false;
@@ -148,7 +148,7 @@ function startEnsemble(manual) {
     }
     let worker;
     try {
-      worker = new Worker('ensemble-worker.js?v=focus-20261113'); job.workers.add(worker); job.pending.add(worker);
+      worker = new Worker('ensemble-worker.js?v=continue-20261113'); job.workers.add(worker); job.pending.add(worker);
       worker.onerror = event => { event.preventDefault(); fail(event.message || 'Workerを起動できませんでした', worker); };
       worker.onmessage = event => {
         if (ensembleJob !== job) return;
@@ -165,7 +165,7 @@ function startEnsemble(manual) {
           return;
         }
         job.histories[index] = result.history;
-        row.children[1].textContent = result.converged ? 'シンドローム一致' : '最大反復に到達';
+        row.children[1].textContent = result.converged ? (result.iterations===maxIterations?'最大反復に到達（一致）':'シンドローム一致') : '最大反復に到達';
         delete row.dataset.pending; job.finished++; if (result.converged) job.converged++;
         drawEnsembleHistories(job);
         const exportButton = document.createElement('button'); exportButton.type = 'button'; exportButton.textContent = 'このBPのJSONを保存';
@@ -175,7 +175,7 @@ function startEnsemble(manual) {
         }); details.append(exportButton);
         worker.terminate(); job.workers.delete(worker); finishEnsemble(job);
       };
-      worker.postMessage({graph,prior,damping,algorithm,order,maxIterations,manual,delay:currentUpdateDelay()});
+      worker.postMessage({graph,prior,damping,algorithm,order,maxIterations,manual,stopOnConvergence:document.getElementById('ensembleEarlyStop').checked,delay:currentUpdateDelay()});
     } catch (error) { fail(error.message, worker); }
   });
   drawEnsembleHistories(job);
@@ -183,3 +183,9 @@ function startEnsemble(manual) {
   finishEnsemble(job);
 }
 window.addEventListener('pagehide', cancelEnsemble);
+
+document.getElementById('ensembleSaveAll').addEventListener('click',()=>{
+  const job=ensembleJob||ensembleLastJob; if(!job) return;
+  const payload={format:'bp-ensemble-llr-histories',version:1,graph:job.graph,prior:job.prior,damping:job.damping,algorithm:job.algorithm,maxIterations:job.maxIterations,runs:job.histories.map((history,i)=>({id:i+1,order:job.orders[i],history,iterations:history.length-1}))};
+  const url=URL.createObjectURL(new Blob([JSON.stringify(payload)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`bp-ensemble-histories-${Date.now()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
