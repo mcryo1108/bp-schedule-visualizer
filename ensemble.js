@@ -20,9 +20,34 @@ function uniqueRandomOrders(n, count) {
   }
   return orders;
 }
-function ensembleChart(history, bound, maxIterations) {
+// Hit-test the actual segments, rather than treating the entire plot as clickable.
+function ensembleLineHit(history,bound,maxIterations,x,y,tolerance=8) {
+  let best=null;
+  for(let bit=0;bit<history[0].length;bit++) {
+    for(let i=0;i<Math.max(1,history.length-1);i++) {
+      const end=Math.min(i+1,history.length-1);
+      const ax=48+i/Math.max(1,maxIterations)*577,ay=90-history[i][bit]/bound*70;
+      const bx=48+end/Math.max(1,maxIterations)*577,by=90-history[end][bit]/bound*70;
+      const length=(bx-ax)**2+(by-ay)**2;
+      const t=length?Math.max(0,Math.min(1,((x-ax)*(bx-ax)+(y-ay)*(by-ay))/length)):0;
+      const distance=Math.hypot(x-ax-t*(bx-ax),y-ay-t*(by-ay));
+      if(distance>tolerance)continue;
+      if(best && (distance>best.distance+1e-6 || (Math.abs(distance-best.distance)<1e-6 && bit!==ensembleFocus)))continue;
+      const sweep=t<.5?i:end;
+      best={bit,sweep,llr:history[sweep][bit],distance};
+    }
+  }
+  return best;
+}
+function selectEnsembleLine(job,run,hit) {
+  ensembleFocus=hit.bit;ensembleBitSelect.value=String(hit.bit);
+  if(code.variables.some(v=>v.id===hit.bit)) {llrUi.bit.value=String(hit.bit);render();}
+  drawEnsembleHistories(job);
+  window.dispatchEvent(new CustomEvent('ensemble-bit-select',{detail:{bit:hit.bit,run,step:hit.sweep}}));
+}
+function ensembleChart(history, bound, maxIterations, onSelect, onHover=()=>{}) {
   const ns='http://www.w3.org/2000/svg';
-  const svg=document.createElementNS(ns,'svg'); svg.setAttribute('viewBox','0 0 640 200'); svg.setAttribute('role','img'); svg.setAttribute('aria-label','全ビットのLLR履歴');
+  const svg=document.createElementNS(ns,'svg'); svg.setAttribute('viewBox','0 0 640 200'); svg.setAttribute('role','group'); svg.setAttribute('aria-label','LLR履歴。線にカーソルを合わせるとノードと値を表示、クリックで選択');
   function element(tag,attrs,text) { const node=document.createElementNS(ns,tag); for(const [key,value] of Object.entries(attrs))node.setAttribute(key,String(value));if(text!==undefined)node.textContent=text;svg.append(node);return node; }
   element('rect',{width:640,height:200,fill:'#fff'});
   for(const f of [-1,-.5,0,.5,1]) {
@@ -34,10 +59,37 @@ function ensembleChart(history, bound, maxIterations) {
   element('text',{x:625,y:185,'text-anchor':'end','font-size':12,fill:'#536176'},String(maxIterations));
   element('text',{x:330,y:198,'text-anchor':'middle','font-size':12,fill:'#536176'},`sweep（現在 ${history.length-1}）`);
   const bitIds=Array.from({length:history[0].length},(_,i)=>i).sort((a,b)=>Number(a===ensembleFocus)-Number(b===ensembleFocus));
+  const lines=new Map();
   for(const bit of bitIds) {
     const points=history.map((row,i)=>`${48+i/Math.max(1,maxIterations)*577},${90-row[bit]/bound*70}`).join(' ');
-    element('polyline',{points,fill:'none',stroke:`hsl(${bit*137.5%360},65%,38%)`,'stroke-width':bit===ensembleFocus?3:1.4,opacity:ensembleFocus===null||bit===ensembleFocus?1:.12,'data-bit':bit,'stroke-linejoin':'round'});
+    const line=element('polyline',{points,fill:'none',stroke:`hsl(${bit*137.5%360},65%,38%)`,'stroke-width':bit===ensembleFocus?3:1.4,opacity:ensembleFocus===null||bit===ensembleFocus?1:.12,'data-bit':bit,'stroke-linejoin':'round',tabindex:0,role:'button','aria-label':`v${bit} のLLR履歴を選択`,'aria-pressed':String(bit===ensembleFocus)});
+    lines.set(bit,line);
+    const title=document.createElementNS(ns,'title');title.textContent=`v${bit} · クリックでこのノードを選択`;line.append(title);
+    line.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();onSelect({bit,sweep:history.length-1,llr:history.at(-1)[bit]});}});
+    line.addEventListener('focus',()=>show({bit,sweep:history.length-1,llr:history.at(-1)[bit]}));
+    line.addEventListener('blur',()=>show(null));
   }
+  const dot=element('circle',{r:4,fill:'#17212b','pointer-events':'none',display:'none'});
+  const tip=document.createElementNS(ns,'g');tip.setAttribute('pointer-events','none');tip.setAttribute('display','none');
+  const box=document.createElementNS(ns,'rect');for(const [key,value]of Object.entries({width:290,height:45,rx:4,fill:'#fff',stroke:'#536176'}))box.setAttribute(key,String(value));
+  const label=document.createElementNS(ns,'text');for(const [key,value]of Object.entries({x:8,y:17,'font-size':12,fill:'#17212b'}))label.setAttribute(key,String(value));
+  const value=document.createElementNS(ns,'text');for(const [key,v]of Object.entries({x:8,y:34,'font-size':12,fill:'#17212b'}))value.setAttribute(key,String(v));tip.append(box,label,value);svg.append(tip);
+  function show(hit) {
+    for(const [bit,line]of lines){line.setAttribute('stroke-width',bit===hit?.bit?3.5:bit===ensembleFocus?3:1.4);line.setAttribute('opacity',hit?(bit===hit.bit?1:.2):(ensembleFocus===null||bit===ensembleFocus?1:.12));}
+    svg.style.cursor=hit?'pointer':'';
+    dot.setAttribute('display',hit?'':'none');tip.setAttribute('display',hit?'':'none');
+    if(hit){const x=48+hit.sweep/Math.max(1,maxIterations)*577,y=90-hit.llr/bound*70;dot.setAttribute('cx',x);dot.setAttribute('cy',y);tip.setAttribute('transform',`translate(${Math.min(335,Math.max(48,x+10))},${Math.min(130,Math.max(4,y-50))})`);label.textContent=`v${hit.bit} · sweep ${hit.sweep} · クリックで選択`;value.textContent=`LLR = ${hit.llr.toPrecision(8)}`;}
+    onHover(hit);
+  }
+  function hitAt(event) {
+    const matrix=svg.getScreenCTM();if(!matrix)return null;
+    const point=svg.createSVGPoint();point.x=event.clientX;point.y=event.clientY;const local=point.matrixTransform(matrix.inverse());
+    const scale=Math.hypot(matrix.a,matrix.b)||1;
+    return ensembleLineHit(history,bound,maxIterations,local.x,local.y,7/scale);
+  }
+  svg.addEventListener('pointermove',event=>show(hitAt(event)));
+  svg.addEventListener('pointerleave',()=>show(null));
+  svg.addEventListener('click',event=>{const hit=hitAt(event);if(hit){event.stopPropagation();onSelect(hit);}});
   return svg;
 }
 function drawEnsembleOrders(job) {
@@ -47,7 +99,7 @@ function drawEnsembleOrders(job) {
   wrap._job=job;wrap.dataset.focus=String(ensembleFocus);wrap.replaceChildren();
   const title=document.createElement('h3');title.textContent='更新順序を比較（左から順に更新）';wrap.append(title);
   const help=document.createElement('p');help.textContent='同じ色は同じノードです。ノードをクリックすると、全BPでその位置とLLRの線を強調します。順序は各BPで全スイープ共通です。';wrap.append(help);
-  const clear=document.createElement('button');clear.textContent='強調を解除';clear.onclick=()=>{ensembleFocus=null;ensembleBitSelect.value='';drawEnsembleHistories(job)};wrap.append(clear);
+  const clear=document.createElement('button');clear.textContent='強調を解除';clear.onclick=()=>{ensembleFocus=null;ensembleBitSelect.value='';llrUi.bit.value='';render();drawEnsembleHistories(job)};wrap.append(clear);
   const scroller=document.createElement('div');scroller.className='ensembleOrderScroll';
   const table=document.createElement('table');table.className='ensembleOrderMatrix';
   const head=table.createTHead().insertRow();for(const text of ['BP',...job.orders[0].map((_,i)=>String(i+1)+'番'), '選択ノードの位置']){const th=document.createElement('th');th.textContent=text;head.append(th);}
@@ -59,11 +111,11 @@ function drawEnsembleHistories(job) {
   let bound = 1;
   for (const history of job.histories) for (const row of history) for (const value of row) bound = Math.max(bound, Math.abs(value));
   job.chartSlots.forEach((slot,i) => {
-    slot.replaceChildren(ensembleChart(job.histories[i],bound,job.maxIterations));
     const text=document.createElement('p'); text.className='ensembleFocusValue';
     const values=job.histories[i].at(-1);
-    text.textContent=ensembleFocus===null?'全ビットを表示':`v${ensembleFocus} · LLR = ${values[ensembleFocus]} · ハード判定 ${values[ensembleFocus]<0?1:0} · sweep ${job.histories[i].length-1}`;
-    slot.append(text);
+    const description=ensembleFocus===null?'全ビットを表示 · 線にカーソルを合わせるとノードを表示、クリックで選択':`v${ensembleFocus} · LLR = ${values[ensembleFocus]} · ハード判定 ${values[ensembleFocus]<0?1:0} · sweep ${job.histories[i].length-1}`;
+    text.textContent=description;
+    slot.replaceChildren(ensembleChart(job.histories[i],bound,job.maxIterations,hit=>selectEnsembleLine(job,i,hit),hit=>{text.textContent=hit?`BP ${i+1} · v${hit.bit} · sweep ${hit.sweep} · LLR = ${hit.llr}`:description;}),text);
   });
 }
 ui.runButton.addEventListener('click', event => {

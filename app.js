@@ -986,7 +986,7 @@ function drawVariables() {
   for (const variable of code.variables) {
     const p = pointForVariable(variable);
     const llr = bp.posterior[variable.id];
-    const isHovered = hoveredVariable && hoveredVariable.id === variable.id;
+    const isHovered = (hoveredVariable && hoveredVariable.id === variable.id) || llrUi.bit.value === String(variable.id);
     const isActiveSerial = bp.active === "serial" && bp.activeVariableId === variable.id;
 
     if (code.type === "bb144") {

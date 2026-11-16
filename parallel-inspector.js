@@ -39,3 +39,8 @@ function drawParallelInspector(){
 for(const el of [pi.BP,pi.Node,pi.Step])el.addEventListener('change',()=>{inspectFocus=null;drawParallelInspector();});
 pi.Refresh.addEventListener('click',drawParallelInspector);pi.Snapshot.addEventListener('click',()=>{inspectFocus=null;drawParallelInspector();});
 window.addEventListener('ensemble-record-start',()=>{setTimeout(drawParallelInspector,0)});
+window.addEventListener('ensemble-bit-select',event=>{
+  drawParallelInspector();
+  pi.BP.value=String(event.detail.run);pi.Node.value=`v${event.detail.bit}`;pi.Step.value=String(event.detail.step);
+  inspectFocus=null;drawParallelInspector();
+});
